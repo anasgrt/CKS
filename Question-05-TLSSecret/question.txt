@@ -1,0 +1,18 @@
+Weight: 2%
+Domain: Cluster Setup (15%)
+Difficulty: Very Easy
+
+Context:
+You need to create a TLS secret for secure communication.
+Certificate and key files are provided.
+
+Task:
+Create a TLS secret using the provided certificate and key files.
+
+Requirements:
+- Certificate path: /opt/course/05/tls.crt
+- Key path: /opt/course/05/tls.key
+- Secret name: my-tls-secret
+- Namespace: secure-ns
+
+Save the kubectl command used to: /opt/course/05/create-secret.txt

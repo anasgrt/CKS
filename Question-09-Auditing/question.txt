@@ -1,0 +1,28 @@
+Weight: 7%
+Domain: Monitoring, Logging and Runtime Security (20%)
+Difficulty: Medium-Hard
+
+Context:
+Kubernetes auditing allows you to track and log API server requests.
+You need to configure the kube-apiserver to enable auditing.
+
+Task:
+1. Create an audit policy file at /etc/kubernetes/audit/policy.yaml with:
+   - A rule to log `secrets` at `Metadata` level
+   - A rule to log `configmaps` at `Metadata` level
+   - A rule to log `namespaces` at `RequestResponse` level
+   - Rules should specify `group: ""` (core API group)
+
+2. Configure the kube-apiserver to enable auditing:
+   - Set `--audit-policy-file` to `/etc/kubernetes/audit/policy.yaml`
+   - Set `--audit-log-path` to `/var/log/kubernetes/audit/audit.log`
+   - Set `--audit-log-maxage` to `2`
+   - Set `--audit-log-maxbackup` to `10`
+
+3. Ensure the API server mounts the necessary volumes:
+   - Mount /etc/kubernetes/audit for the policy file
+   - Mount /var/log/kubernetes/audit for the log file
+
+4. Wait for API server to restart and verify it's healthy
+
+Save the audit policy to: /opt/course/09/audit-policy.yaml

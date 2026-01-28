@@ -1,0 +1,24 @@
+Weight: 5%
+Domain: Cluster Hardening (15%)
+Difficulty: Medium
+
+Context:
+A ServiceAccount named `backend-sa` exists in namespace `secure`.
+A Deployment named `backend-deploy` exists in the same namespace using this ServiceAccount.
+
+Task:
+1. Edit the ServiceAccount `backend-sa` to disable automatic token mounting
+   - Set `automountServiceAccountToken: false`
+
+2. Edit the Deployment `backend-deploy` to manually mount the ServiceAccount token
+   using a projected volume:
+   - Create a projected volume named `token`
+   - Configure a serviceAccountToken source with:
+     - expirationSeconds: 3600
+     - path: token
+   - Mount the token at path `/var/run/secrets/kubernetes.io/serviceaccount`
+   - The volume mount must be read-only
+
+Save the modified manifests to:
+- /opt/course/08/serviceaccount.yaml
+- /opt/course/08/deployment.yaml

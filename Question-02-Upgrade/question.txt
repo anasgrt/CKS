@@ -1,0 +1,26 @@
+Weight: 5%
+Domain: Cluster Hardening (15%)
+Difficulty: Medium
+
+Context:
+A worker node named `node01` is running kubelet version 1.34.0.
+The control plane is already at version 1.34.1.
+
+Task:
+Upgrade the worker node `node01` to version 1.34.1
+
+Steps required:
+1. Drain the node (cordon and evict pods)
+2. SSH to the worker node
+3. Upgrade kubeadm to version 1.34.1
+4. Run kubeadm upgrade node
+5. Upgrade kubelet and kubectl to version 1.34.1
+6. Restart kubelet
+7. Uncordon the node
+
+Save the following:
+- Pre-upgrade node version: /opt/course/02/node-version-before.txt
+- Post-upgrade node version: /opt/course/02/node-version-after.txt
+
+Note: This question simulates the upgrade process. In a real cluster,
+you would perform actual package upgrades.

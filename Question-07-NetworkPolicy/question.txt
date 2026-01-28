@@ -1,0 +1,29 @@
+Weight: 7%
+Domain: Cluster Setup (10%)
+Difficulty: Medium-Hard
+
+Context:
+You have two namespaces: `prod` and `data`.
+The namespace `data` is labeled with `env: data`.
+
+Task:
+1. Create a NetworkPolicy named `deny-all-ingress` in the `prod` namespace that
+   denies ALL ingress traffic to all pods
+
+2. Create a NetworkPolicy named `allow-from-prod` in the `data` namespace that
+   allows ingress traffic ONLY from:
+   - Pods that are in the `prod` namespace
+   - AND those pods must have the label `env: prod`
+
+Requirements:
+- Policy 1: deny-all-ingress (in prod namespace)
+  - Applies to all pods (empty podSelector)
+  - Denies all ingress traffic
+
+- Policy 2: allow-from-prod (in data namespace)
+  - Applies to all pods
+  - Allows ingress only from prod namespace pods with label env=prod
+
+Save the NetworkPolicy manifests to:
+- /opt/course/07/deny-all-ingress.yaml
+- /opt/course/07/allow-from-prod.yaml

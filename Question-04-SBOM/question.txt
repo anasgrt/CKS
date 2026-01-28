@@ -1,0 +1,23 @@
+Weight: 4%
+Domain: Supply Chain Security (20%)
+Difficulty: Easy
+
+Context:
+Software Bill of Materials (SBOM) generation is critical for supply chain security.
+You need to generate an SBOM for a container image.
+
+Task:
+1. Use the `bom` tool to generate an SBOM in SPDX format
+
+2. Analyze the container image: nginx:1.25-alpine
+
+3. Save the output to: /opt/course/04/sbom.spdx
+
+Note: The `bom` tool is a Kubernetes SIG Release project for generating SBOMs.
+
+Alternative tools that may be used:
+- syft (for SPDX and CycloneDX formats)
+- trivy (can also generate SBOM)
+
+Command format:
+  bom generate -o /opt/course/04/sbom.spdx --image nginx:1.25-alpine

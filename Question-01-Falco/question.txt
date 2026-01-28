@@ -1,0 +1,24 @@
+Weight: 7%
+Domain: Monitoring, Logging & Runtime Security (20%)
+Difficulty: Medium
+
+Context:
+Three deployments exist in namespace `apps`: `nvidia-gpu`, `cpu`, and `ollama`.
+Pods from one of these deployments are accessing `/dev/mem`, causing memory issues on the node.
+
+Task:
+1. Use Falco to identify which pod is accessing `/dev/mem`
+   - Check Falco logs on the node where the suspicious activity is occurring
+   - Identify the specific pod name and container
+
+2. Scale the related deployment to 0 replicas
+   - Once you identify the problematic deployment, scale it down
+
+3. Save your findings:
+   - Save the pod name to: /opt/course/01/pod-name.txt
+   - Save the Falco alert line to: /opt/course/01/falco-alert.txt
+
+Hints:
+- Falco logs can be viewed with: journalctl -u falco -f
+- Or check: /var/log/falco/falco.log
+- Look for alerts related to memory device access

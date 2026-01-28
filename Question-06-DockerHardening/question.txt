@@ -1,0 +1,30 @@
+Weight: 5%
+Domain: System Hardening (15%)
+Difficulty: Medium
+
+Context:
+The Docker daemon on a cluster node needs to be secured.
+You need to SSH to the specified node and harden the Docker configuration.
+
+Task:
+SSH to the cluster node and perform the following tasks to secure the Docker daemon:
+
+1. Remove user `developer` from the `docker` group (do not remove from any other group)
+
+2. Reconfigure the Docker daemon to ensure the socket file `/var/run/docker.sock`
+   is owned by group `root` (not docker)
+
+3. Reconfigure the Docker daemon to ensure it does not listen on any TCP port
+   - Check /etc/docker/daemon.json
+   - Remove any "hosts" configuration that includes tcp://
+
+4. Restart the Docker daemon
+
+5. Verify the Kubernetes cluster is healthy after your changes
+
+Save the following:
+- Docker socket permissions before: /opt/course/06/socket-before.txt
+- Docker socket permissions after: /opt/course/06/socket-after.txt
+- Docker daemon.json content: /opt/course/06/daemon.json
+
+Note: In the real exam, you will SSH to a specific node (e.g., ssh node01)

@@ -1,0 +1,25 @@
+Weight: 7%
+Domain: Supply Chain Security (20%)
+Difficulty: Medium
+
+Context:
+A Dockerfile and a Kubernetes Deployment manifest are provided.
+Both files contain security issues that do not follow best practices.
+
+Task:
+Analyze and fix the security issues in both files.
+
+1. Analyze the Dockerfile at /opt/course/12/Dockerfile and fix:
+   - Running as root user (add USER instruction with non-root user)
+   - Using `latest` tag for base image (use specific version)
+   - Using `ADD` instead of `COPY` for local files
+
+2. Analyze the Deployment manifest at /opt/course/12/deployment.yaml and fix:
+   - Container running as privileged (set privileged: false)
+   - Container can escalate privileges (set allowPrivilegeEscalation: false)
+   - Container not running as non-root (set runAsNonRoot: true)
+   - Root filesystem is writable (set readOnlyRootFilesystem: true)
+
+Save the fixed files to:
+- /opt/course/12/Dockerfile-fixed
+- /opt/course/12/deployment-fixed.yaml

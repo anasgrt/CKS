@@ -1,0 +1,29 @@
+Weight: 5%
+Domain: Cluster Hardening (15%)
+Difficulty: Medium
+
+Context:
+The kubelet on a worker node has insecure configuration settings.
+You need to SSH to the node and secure the kubelet.
+
+Task:
+SSH to the specified node and secure the kubelet configuration file
+located at /var/lib/kubelet/config.yaml.
+
+1. Disable anonymous authentication:
+   - Set `authentication.anonymous.enabled` to `false`
+
+2. Enable webhook authentication (for token-based auth):
+   - Set `authentication.webhook.enabled` to `true`
+
+3. Enable webhook authorization:
+   - Set `authorization.mode` to `Webhook`
+
+4. Restart the kubelet service:
+   - `systemctl restart kubelet`
+
+5. Verify the node is in Ready state after changes
+
+Save the following:
+- Kubelet config before changes: /opt/course/13/kubelet-before.yaml
+- Kubelet config after changes: /opt/course/13/kubelet-after.yaml

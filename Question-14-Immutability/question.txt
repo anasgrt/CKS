@@ -1,0 +1,24 @@
+Weight: 7%
+Domain: Monitoring, Logging and Runtime Security (20%)
+Difficulty: Medium
+
+Context:
+A Deployment named `nginx` exists in the `immutable-ns` namespace.
+The container filesystem needs to be made immutable at runtime for security.
+
+Task:
+Modify the Deployment to ensure the container filesystem is immutable at runtime.
+
+1. Edit the Deployment to add `readOnlyRootFilesystem: true` in the container's securityContext
+
+2. The pod may fail to start because nginx needs writable directories.
+   Check the logs to identify the required paths (e.g., /var/cache/nginx, /var/run, /tmp)
+
+3. Add `emptyDir` volumes and mount them to the writable paths required by nginx:
+   - /var/cache/nginx
+   - /var/run
+   - /tmp (optional)
+
+4. Ensure the pod is running successfully after the changes
+
+Save the modified Deployment to: /opt/course/14/deployment-immutable.yaml
