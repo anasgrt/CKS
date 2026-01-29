@@ -52,7 +52,7 @@ fi
 echo ""
 echo "=============================================="
 echo "Upgrade Process Checklist:"
-echo "=============================================="
+echo "=============================================""
 echo ""
 echo "[ ] 1. Drain the node: kubectl drain node-01 --ignore-daemonsets --delete-emptydir-data"
 echo "[ ] 2. SSH to node: ssh node-01"
