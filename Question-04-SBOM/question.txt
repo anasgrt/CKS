@@ -2,101 +2,20 @@ Weight: 4%
 Domain: Supply Chain Security (20%)
 Difficulty: Easy
 
-═══════════════════════════════════════════════════════════════════════════════
-EXAM CONTEXT (Based on CKS 2024/2025 Curriculum):
-═══════════════════════════════════════════════════════════════════════════════
+Context:
+You need to analyze the software components inside a container image
+for supply chain security purposes.
 
-The CKS exam curriculum lists under "Supply Chain Security (20%)":
-  - "Understand your supply chain (e.g. SBOM, CI/CD, artifact repositories)"
+Task:
+1. Use the `bom` tool to generate an SBOM for the container image:
 
-This question tests your ability to generate a Software Bill of Materials (SBOM),
-which is essential for understanding what components are inside your container
-images - a critical aspect of supply chain security.
-
-SBOM = Software Bill of Materials - a formal record of all components,
-dependencies, and libraries used in a software artifact.
-
-═══════════════════════════════════════════════════════════════════════════════
-TASK:
-═══════════════════════════════════════════════════════════════════════════════
-
-You are tasked with generating a Software Bill of Materials (SBOM) to
-analyze the components inside a container image.
-
-1. Create directory /opt/course/04 if it doesn't exist
-
-2. Generate an SBOM in SPDX format for the following container image:
-   
    nginx:1.25-alpine
 
-3. Save the SBOM output to:
-   
-   /opt/course/04/sbom.spdx
+   Save the SBOM to: /opt/course/04/sbom.spdx
 
-═══════════════════════════════════════════════════════════════════════════════
-TOOLS AVAILABLE IN EXAM ENVIRONMENT:
-═══════════════════════════════════════════════════════════════════════════════
+2. Query the generated SBOM to find all packages that contain "ssl" or "openssl"
 
-The exam environment may have ONE or MORE of these SBOM tools pre-installed:
+   Save the query results to: /opt/course/04/ssl-packages.txt
 
-1. bom (Kubernetes SIG Release tool)
-   - Official Kubernetes project for SBOM generation
-   - Generates SPDX format by default
-   - Documentation: https://github.com/kubernetes-sigs/bom
-
-2. syft (Anchore)
-   - Popular SBOM generator
-   - Supports SPDX, CycloneDX, and other formats
-   - Documentation: https://github.com/anchore/syft
-
-3. trivy (Aqua Security)
-   - Primarily a vulnerability scanner
-   - Can also generate SBOMs
-   - Available documentation during exam
-   
-IMPORTANT: 
-- Check which tool is available: which bom && which syft && which trivy
-- The exam might specify which tool to use
-- All three can output SPDX format
-
-═══════════════════════════════════════════════════════════════════════════════
-SBOM FORMATS TO KNOW:
-═══════════════════════════════════════════════════════════════════════════════
-
-SPDX (Software Package Data Exchange):
-  - Linux Foundation standard
-  - ISO/IEC 5962:2021 standard
-  - Commonly used for Kubernetes/CNCF projects
-  - File extension: .spdx or .spdx.json
-
-CycloneDX:
-  - OWASP project
-  - Also widely used
-  - File extension: .cdx or .cdx.json
-
-═══════════════════════════════════════════════════════════════════════════════
-QUICK REFERENCE (Command Syntax):
-═══════════════════════════════════════════════════════════════════════════════
-
-Using bom:
-  bom generate -o <output-file> --image <image-name>
-
-Using syft:
-  syft <image-name> -o spdx > <output-file>
-  syft <image-name> -o spdx-json > <output-file.json>
-
-Using trivy:
-  trivy image --format spdx <image-name> > <output-file>
-  trivy image --format spdx-json <image-name> > <output-file.json>
-
-═══════════════════════════════════════════════════════════════════════════════
-EXAM TIPS FROM REAL CKS CANDIDATES:
-═══════════════════════════════════════════════════════════════════════════════
-
-1. Read the question carefully - it may specify which tool to use
-2. Check tool availability first with 'which' command
-3. Make sure the output directory exists before running the command
-4. The question might ask for a specific format (SPDX vs CycloneDX)
-5. Verify your output file was created and contains valid SBOM data
-6. Know the basic command syntax for all three tools
-7. This is usually a quick question (2-3 minutes if you know the commands)
+3. Verify if the package "libcrypto3" exists in the SBOM and save its version
+   to: /opt/course/04/libcrypto-version.txt
