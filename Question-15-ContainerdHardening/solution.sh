@@ -15,55 +15,81 @@ ssh node-01
 EOF
 
 echo ""
-echo "STEP 2: Check and save socket permissions"
-echo "──────────────────────────────────────────"
-echo ""
-cat << 'EOF'
-# Check containerd socket permissions
-ls -la /run/containerd/containerd.sock
-
-# Save to output file
-ls -la /run/containerd/containerd.sock > /opt/course/15/socket-permissions.txt
-
-# Expected: srw-rw---- 1 root root ... /run/containerd/containerd.sock
-# Socket should be owned by root:root with mode 660 or more restrictive
-EOF
-
-echo ""
-echo "STEP 3: Check containerd gRPC configuration"
-echo "────────────────────────────────────────────"
-echo ""
-cat << 'EOF'
-# Check if containerd listens on TCP (should be unix socket only)
-grep -A10 "\[grpc\]" /etc/containerd/config.toml
-
-# Save to output file
-grep -A10 "\[grpc\]" /etc/containerd/config.toml > /opt/course/15/containerd-grpc.txt
-
-# Expected output should show:
-# [grpc]
-#   address = "/run/containerd/containerd.sock"
-#
-# If you see tcp:// addresses, that's a security concern!
-EOF
-
-echo ""
-echo "STEP 4: Check container-related groups"
+echo "STEP 2: Save current socket permissions"
 echo "───────────────────────────────────────"
 echo ""
 cat << 'EOF'
-# Find container-related groups
-getent group | grep -iE "container|docker"
-
-# Save to output file
-getent group | grep -iE "container|docker" > /opt/course/15/container-groups.txt 2>/dev/null || echo "No container groups found" > /opt/course/15/container-groups.txt
-
-# Check who has access to containerd socket
-stat /run/containerd/containerd.sock
+# Check and save current permissions
+ls -la /run/containerd/containerd.sock > /opt/course/15/socket-before.txt
+cat /opt/course/15/socket-before.txt
 EOF
 
 echo ""
-echo "STEP 5: Verify cluster health"
+echo "STEP 3: Remove user from container group"
+echo "─────────────────────────────────────────"
+echo ""
+cat << 'EOF'
+# Check current groups for developer
+id developer
+
+# Check for container-related groups
+getent group | grep -iE "container|docker"
+
+# Remove developer from any container group (if applicable)
+sudo gpasswd -d developer containerd 2>/dev/null || true
+sudo gpasswd -d developer docker 2>/dev/null || true
+
+# Verify user is removed
+id developer
+# Should not show any container groups
+EOF
+
+echo ""
+echo "STEP 4: Configure containerd socket ownership"
+echo "──────────────────────────────────────────────"
+echo ""
+cat << 'EOF'
+# Ensure socket is owned by root:root
+sudo chown root:root /run/containerd/containerd.sock
+sudo chmod 660 /run/containerd/containerd.sock
+
+# Edit containerd configuration if needed
+sudo vi /etc/containerd/config.toml
+
+# In the [grpc] section, ensure:
+# - address = "/run/containerd/containerd.sock"
+# - NO tcp:// addresses
+
+# Save the config
+sudo cp /etc/containerd/config.toml /opt/course/15/config.toml
+EOF
+
+echo ""
+echo "STEP 5: Restart containerd daemon"
+echo "──────────────────────────────────"
+echo ""
+cat << 'EOF'
+# Restart containerd
+sudo systemctl restart containerd
+
+# Verify containerd is running
+sudo systemctl status containerd
+EOF
+
+echo ""
+echo "STEP 6: Verify socket permissions"
+echo "──────────────────────────────────"
+echo ""
+cat << 'EOF'
+# Check new socket permissions
+ls -la /run/containerd/containerd.sock > /opt/course/15/socket-after.txt
+cat /opt/course/15/socket-after.txt
+
+# Should show: srw-rw---- root root ... /run/containerd/containerd.sock
+EOF
+
+echo ""
+echo "STEP 7: Verify cluster health"
 echo "─────────────────────────────"
 echo ""
 cat << 'EOF'
@@ -77,27 +103,21 @@ EOF
 
 echo ""
 echo "═══════════════════════════════════════════════════════════════════"
-echo "QUICK SOLUTION (run on node):"
+echo "QUICK COMMANDS (run on node):"
 echo "═══════════════════════════════════════════════════════════════════"
 echo ""
-cat << 'EOF'
-mkdir -p /opt/course/15
-ls -la /run/containerd/containerd.sock > /opt/course/15/socket-permissions.txt
-grep -A10 "\[grpc\]" /etc/containerd/config.toml > /opt/course/15/containerd-grpc.txt
-getent group | grep -iE "container|docker" > /opt/course/15/container-groups.txt 2>/dev/null || echo "No container groups found" > /opt/course/15/container-groups.txt
-EOF
+echo "sudo gpasswd -d developer containerd 2>/dev/null || true"
+echo "sudo chown root:root /run/containerd/containerd.sock"
+echo "sudo chmod 660 /run/containerd/containerd.sock"
+echo "sudo systemctl restart containerd"
+echo "ls -la /run/containerd/containerd.sock"
 echo ""
 
-echo "═══════════════════════════════════════════════════════════════════"
-echo "SECURITY HARDENING (if needed):"
-echo "═══════════════════════════════════════════════════════════════════"
-cat << 'EOF'
-# If socket has wrong permissions, fix with:
-sudo chmod 660 /run/containerd/containerd.sock
-sudo chown root:root /run/containerd/containerd.sock
-
-# If containerd has TCP listeners, edit /etc/containerd/config.toml:
-# Remove any tcp:// addresses in [grpc] section
+echo "KEY POINTS:"
+echo "  - Containerd socket access = root access on the host"
+echo "  - Never expose containerd on TCP without mTLS"
+echo "  - Minimize users with socket access"
+echo "  - Socket should be owned by root:root with mode 660"
 # Then restart: sudo systemctl restart containerd
 EOF
 echo ""

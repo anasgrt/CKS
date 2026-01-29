@@ -4,29 +4,25 @@ Difficulty: Medium
 
 Context:
 The container runtime (containerd) on a cluster node needs to be secured.
-You need to SSH to the specified node and verify/harden the containerd configuration.
+You need to SSH to the specified node and harden the containerd configuration.
 
 Task:
-SSH to node-01 and perform the following tasks to secure the container runtime:
+SSH to node-01 and perform the following tasks to secure the containerd daemon:
 
-1. Verify the containerd socket file `/run/containerd/containerd.sock`
-   is owned by root:root with appropriate permissions (0660 or more restrictive)
+1. Remove user `developer` from any container-related group (do not remove from any other group)
 
-2. Verify containerd is not listening on any TCP port (only unix socket)
+2. Reconfigure containerd to ensure the socket file `/run/containerd/containerd.sock`
+   is owned by group `root` (not any container group)
+
+3. Reconfigure containerd to ensure it does not listen on any TCP port
    - Check /etc/containerd/config.toml
-   - Ensure no TCP listeners are configured in the [grpc] section
+   - Remove any "tcp://" addresses in the [grpc] section
 
-3. Check if any non-root users have access to the containerd socket
-   - Document any container-related groups
+4. Restart the containerd daemon
 
-4. Verify the Kubernetes cluster is healthy after your checks
+5. Verify the Kubernetes cluster is healthy after your changes
 
 Save the following:
-- Containerd socket permissions: /opt/course/15/socket-permissions.txt
-- Containerd config grpc section: /opt/course/15/containerd-grpc.txt
-- List of container-related groups: /opt/course/15/container-groups.txt
-
-Hints:
-- Use `ls -la /run/containerd/containerd.sock` to check socket permissions
-- Use `grep -A10 "\[grpc\]" /etc/containerd/config.toml` to check listener config
-- Use `getent group | grep -iE "container|docker"` to find container-related groups
+- Containerd socket permissions before: /opt/course/15/socket-before.txt
+- Containerd socket permissions after: /opt/course/15/socket-after.txt
+- Containerd config.toml content: /opt/course/15/config.toml
