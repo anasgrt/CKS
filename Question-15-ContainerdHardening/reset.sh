@@ -1,38 +1,42 @@
 #!/bin/bash
 # Reset Question 15 - Containerd Security Hardening
 
-rm -rf /opt/course/15
+NODE="node-01"
 
-# Get the worker node
-WORKER_NODE=$(kubectl get nodes --selector='!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}')
-if [ -z "$WORKER_NODE" ]; then
-    WORKER_NODE="node-01"
+echo "Resetting Question 15 on $NODE..."
+
+ssh "$NODE" << 'REMOTE_SCRIPT'
+# Restore original containerd config if backup exists
+if [ -f /etc/containerd/config.toml.backup ]; then
+    sudo cp /etc/containerd/config.toml.backup /etc/containerd/config.toml
+    echo "✓ Restored original containerd config"
 fi
 
-echo "Cleaning up on $WORKER_NODE..."
+# Restart containerd
+sudo systemctl restart containerd
+echo "✓ Restarted containerd"
 
-ssh "$WORKER_NODE" << 'REMOTE_SCRIPT'
-# Restore socket to root:root
-if [ -S /run/containerd/containerd.sock ]; then
-    sudo chown root:root /run/containerd/containerd.sock
-    sudo chmod 660 /run/containerd/containerd.sock
-    echo "✓ Restored socket to root:root"
-fi
+# Restore socket to root:root (in case it was changed)
+sudo chown root:root /run/containerd/containerd.sock 2>/dev/null || true
 
 # Remove developer user if exists
 if id developer &>/dev/null; then
     sudo userdel -r developer 2>/dev/null || true
-    echo "✓ Removed user 'developer'"
+    echo "✓ Removed developer user"
 fi
 
-# Remove containerd group if exists
+# Remove containerd group if exists (only if not used by containerd itself)
 if getent group containerd &>/dev/null; then
-    sudo groupdel containerd 2>/dev/null || true
-    echo "✓ Removed group 'containerd'"
+    # Check if group is used as primary group by any user
+    if ! awk -F: -v gid=$(getent group containerd | cut -d: -f3) '$4==gid' /etc/passwd | grep -q .; then
+        sudo groupdel containerd 2>/dev/null || true
+        echo "✓ Removed containerd group"
+    fi
 fi
 
 # Clean up output directory on node
 rm -rf /opt/course/15 2>/dev/null || true
+echo "✓ Cleaned /opt/course/15"
 REMOTE_SCRIPT
 
 echo ""

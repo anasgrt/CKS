@@ -15,8 +15,8 @@ SSH to node-01 and perform the following tasks to secure the containerd daemon:
    is owned by group `root` (not any container group)
 
 3. Reconfigure containerd to ensure it does not listen on any TCP port
-   - Check /etc/containerd/config.toml
-   - Remove any "tcp://" addresses in the [grpc] section
+   - Check /etc/containerd/config.toml for any tcp_address configuration
+   - Remove any TCP listener configuration
 
 4. Restart the containerd daemon
 
@@ -26,3 +26,4 @@ Save the following:
 - Containerd socket permissions before: /opt/course/15/socket-before.txt
 - Containerd socket permissions after: /opt/course/15/socket-after.txt
 - Containerd config.toml content: /opt/course/15/config.toml
+- Proof that TCP port is closed: /opt/course/15/netstat-after.txt

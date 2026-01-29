@@ -15,14 +15,14 @@ ssh node-01
 EOF
 
 echo ""
-echo "STEP 2: Save current socket permissions"
-echo "───────────────────────────────────────"
+echo "STEP 2: Create output directory and save current state"
+echo "────────────────────────────────────────────────────────"
 echo ""
 cat << 'EOF'
 # Create output directory
 mkdir -p /opt/course/15
 
-# Check and save current permissions
+# Save current socket permissions
 ls -la /run/containerd/containerd.sock > /opt/course/15/socket-before.txt
 cat /opt/course/15/socket-before.txt
 EOF
@@ -35,40 +35,45 @@ cat << 'EOF'
 # Check current groups for developer
 id developer
 
-# Check for container-related groups
-getent group | grep -iE "container|docker"
-
-# Remove developer from any container group (if applicable)
-sudo gpasswd -d developer containerd 2>/dev/null || true
-sudo gpasswd -d developer docker 2>/dev/null || true
+# Remove developer from containerd group
+sudo gpasswd -d developer containerd
 
 # Verify user is removed
 id developer
-# Should not show any container groups
+# Should not show 'containerd' group
 EOF
 
 echo ""
-echo "STEP 4: Configure containerd socket ownership"
-echo "──────────────────────────────────────────────"
+echo "STEP 4: Fix socket ownership"
+echo "─────────────────────────────"
 echo ""
 cat << 'EOF'
 # Ensure socket is owned by root:root
 sudo chown root:root /run/containerd/containerd.sock
 sudo chmod 660 /run/containerd/containerd.sock
+EOF
 
-# Edit containerd configuration if needed
+echo ""
+echo "STEP 5: Remove TCP listener from config"
+echo "────────────────────────────────────────"
+echo ""
+cat << 'EOF'
+# Check current config for TCP listener
+cat /etc/containerd/config.toml | grep -i tcp
+
+# Edit the config to remove tcp_address line
 sudo vi /etc/containerd/config.toml
+# Remove or comment out: tcp_address = "0.0.0.0:10000"
 
-# In the [grpc] section, ensure:
-# - address = "/run/containerd/containerd.sock"
-# - NO tcp:// addresses
+# Or use sed to remove it:
+sudo sed -i '/tcp_address/d' /etc/containerd/config.toml
 
 # Save the config
 sudo cp /etc/containerd/config.toml /opt/course/15/config.toml
 EOF
 
 echo ""
-echo "STEP 5: Restart containerd daemon"
+echo "STEP 6: Restart containerd daemon"
 echo "──────────────────────────────────"
 echo ""
 cat << 'EOF'
@@ -80,19 +85,24 @@ sudo systemctl status containerd
 EOF
 
 echo ""
-echo "STEP 6: Verify socket permissions"
-echo "──────────────────────────────────"
+echo "STEP 7: Verify and save results"
+echo "────────────────────────────────"
 echo ""
 cat << 'EOF'
 # Check new socket permissions
 ls -la /run/containerd/containerd.sock > /opt/course/15/socket-after.txt
 cat /opt/course/15/socket-after.txt
 
-# Should show: srw-rw---- root root ... /run/containerd/containerd.sock
+# Verify TCP port is closed
+ss -tlnp | grep 10000
+# Should return nothing
+
+# Save proof
+ss -tlnp > /opt/course/15/netstat-after.txt
 EOF
 
 echo ""
-echo "STEP 7: Verify cluster health"
+echo "STEP 8: Verify cluster health"
 echo "─────────────────────────────"
 echo ""
 cat << 'EOF'
@@ -109,13 +119,17 @@ echo "════════════════════════�
 echo "QUICK COMMANDS (run on node):"
 echo "═══════════════════════════════════════════════════════════════════"
 echo ""
-echo "mkdir -p /opt/course/15"
-echo "ls -la /run/containerd/containerd.sock > /opt/course/15/socket-before.txt"
-echo "sudo gpasswd -d developer containerd"
-echo "sudo chown root:root /run/containerd/containerd.sock"
-echo "sudo cp /etc/containerd/config.toml /opt/course/15/config.toml"
-echo "sudo systemctl restart containerd"
-echo "ls -la /run/containerd/containerd.sock > /opt/course/15/socket-after.txt"
+cat << 'EOF'
+mkdir -p /opt/course/15
+ls -la /run/containerd/containerd.sock > /opt/course/15/socket-before.txt
+sudo gpasswd -d developer containerd
+sudo chown root:root /run/containerd/containerd.sock
+sudo sed -i '/tcp_address/d' /etc/containerd/config.toml
+sudo cp /etc/containerd/config.toml /opt/course/15/config.toml
+sudo systemctl restart containerd
+ls -la /run/containerd/containerd.sock > /opt/course/15/socket-after.txt
+ss -tlnp > /opt/course/15/netstat-after.txt
+EOF
 echo ""
 
 echo "KEY POINTS:"
