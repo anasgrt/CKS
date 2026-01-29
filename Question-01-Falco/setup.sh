@@ -67,9 +67,30 @@ INSTALL_SCRIPT
     echo "Creating custom Falco rule on $NODE..."
     ssh -o StrictHostKeyChecking=no "$NODE" "mkdir -p /etc/falco/rules.d"
 
-    # Create the custom rule file using echo (avoids nested heredoc issues)
-    ssh -o StrictHostKeyChecking=no "$NODE" 'cat > /etc/falco/rules.d/dev_mem_access.yaml << EOF
-# Custom rule to detect /dev/mem access
+    # Create the custom rule file using printf (more reliable than heredoc over SSH)
+    ssh -o StrictHostKeyChecking=no "$NODE" "printf '%s\n' \
+'# Custom rule to detect /dev/mem access' \
+'- rule: Memory device access detected' \
+'  desc: Detect read access to /dev/mem which can be used for memory dumping attacks' \
+'  condition: >' \
+'    evt.type in (open, openat, openat2) and' \
+'    evt.dir = < and' \
+'    fd.name startswith /dev/mem and' \
+'    container.id != host' \
+'  output: \"Memory device /dev/mem opened (user=%user.name command=%proc.cmdline container_id=%container.id container_name=%container.name pod=%k8s.pod.name ns=%k8s.ns.name)\"' \
+'  priority: WARNING' \
+'  tags: [container, memory, cks]' \
+> /etc/falco/rules.d/dev_mem_access.yaml"
+
+    # Verify rule was created and show content
+    echo "Verifying rule file on $NODE..."
+    if ssh -o StrictHostKeyChecking=no "$NODE" "test -f /etc/falco/rules.d/dev_mem_access.yaml"; then
+        echo "✓ Custom Falco rule file created"
+        ssh -o StrictHostKeyChecking=no "$NODE" "cat /etc/falco/rules.d/dev_mem_access.yaml"
+    else
+        echo "⚠ Failed to create custom Falco rule - trying alternative method..."
+        # Alternative: use tee
+        echo '# Custom rule to detect /dev/mem access
 - rule: Memory device access detected
   desc: Detect read access to /dev/mem which can be used for memory dumping attacks
   condition: >
@@ -79,31 +100,39 @@ INSTALL_SCRIPT
     container.id != host
   output: "Memory device /dev/mem opened (user=%user.name command=%proc.cmdline container_id=%container.id container_name=%container.name pod=%k8s.pod.name ns=%k8s.ns.name)"
   priority: WARNING
-  tags: [container, memory, cks]
-EOF'
+  tags: [container, memory, cks]' | ssh -o StrictHostKeyChecking=no "$NODE" "cat > /etc/falco/rules.d/dev_mem_access.yaml"
 
-    # Verify rule was created
-    if ssh -o StrictHostKeyChecking=no "$NODE" "test -f /etc/falco/rules.d/dev_mem_access.yaml"; then
-        echo "✓ Custom Falco rule created"
-    else
-        echo "⚠ Failed to create custom Falco rule"
+        # Verify again
+        if ssh -o StrictHostKeyChecking=no "$NODE" "test -f /etc/falco/rules.d/dev_mem_access.yaml"; then
+            echo "✓ Custom Falco rule file created (alternative method)"
+        else
+            echo "✗ Failed to create custom Falco rule"
+        fi
     fi
 
-    # Restart Falco to load the new rule
+    # Determine which Falco service is available and restart it
     echo "Restarting Falco service on $NODE..."
-    ssh -o StrictHostKeyChecking=no "$NODE" "systemctl restart falco-modern-bpf.service 2>/dev/null || systemctl restart falco.service 2>/dev/null || true"
+    FALCO_SERVICE=$(ssh -o StrictHostKeyChecking=no "$NODE" "if systemctl list-unit-files | grep -q falco-modern-bpf; then echo falco-modern-bpf; else echo falco; fi")
+    echo "  Using service: $FALCO_SERVICE"
+
+    ssh -o StrictHostKeyChecking=no "$NODE" "systemctl daemon-reload; systemctl restart $FALCO_SERVICE"
 
     # Wait for service to start
     sleep 3
 
-    # Verify Falco is running
-    FALCO_STATUS=$(ssh -o StrictHostKeyChecking=no "$NODE" "systemctl is-active falco-modern-bpf 2>/dev/null || systemctl is-active falco 2>/dev/null" || echo "inactive")
+    # Verify Falco is running and show status
+    FALCO_STATUS=$(ssh -o StrictHostKeyChecking=no "$NODE" "systemctl is-active $FALCO_SERVICE" || echo "inactive")
     if [ "$FALCO_STATUS" = "active" ]; then
-        echo "✓ Falco service is running on $NODE"
+        echo "✓ Falco service ($FALCO_SERVICE) is running on $NODE"
     else
         echo "⚠ Falco service may not be running on $NODE"
-        ssh -o StrictHostKeyChecking=no "$NODE" "systemctl status falco-modern-bpf --no-pager 2>/dev/null || systemctl status falco --no-pager 2>/dev/null" || true
+        ssh -o StrictHostKeyChecking=no "$NODE" "systemctl status $FALCO_SERVICE --no-pager" || true
     fi
+
+    # Show Falco version and loaded rules
+    echo "Falco info on $NODE:"
+    ssh -o StrictHostKeyChecking=no "$NODE" "falco --version 2>/dev/null || true"
+    ssh -o StrictHostKeyChecking=no "$NODE" "ls -la /etc/falco/rules.d/"
 }
 
 # Install Falco on each worker node
@@ -246,9 +275,11 @@ echo "1. Find which node the suspicious pod is running on:"
 echo "   kubectl get pods -n apps -o wide"
 echo ""
 echo "2. SSH to that node and check Falco logs with journalctl:"
-echo "   ssh <node-name> journalctl -u falco -f"
-echo "   ssh <node-name> journalctl -u falco | grep -i mem"
+echo "   ssh <node-name> journalctl -u falco-modern-bpf -f"
+echo "   ssh <node-name> journalctl -u falco-modern-bpf --no-pager | grep -i mem"
+echo ""
+echo "   (Or use 'falco' instead of 'falco-modern-bpf' depending on your setup)"
 echo ""
 echo "Example:"
-echo "   ssh node-02 journalctl -u falco --no-pager | grep -i mem"
+echo "   ssh node-02 journalctl -u falco-modern-bpf --no-pager | grep -i mem"
 echo ""
