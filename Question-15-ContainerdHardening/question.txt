@@ -1,0 +1,32 @@
+Weight: 5%
+Domain: System Hardening (15%)
+Difficulty: Medium
+
+Context:
+The container runtime (containerd) on a cluster node needs to be secured.
+You need to SSH to the specified node and verify/harden the containerd configuration.
+
+Task:
+SSH to node-01 and perform the following tasks to secure the container runtime:
+
+1. Verify the containerd socket file `/run/containerd/containerd.sock`
+   is owned by root:root with appropriate permissions (0660 or more restrictive)
+
+2. Verify containerd is not listening on any TCP port (only unix socket)
+   - Check /etc/containerd/config.toml
+   - Ensure no TCP listeners are configured in the [grpc] section
+
+3. Check if any non-root users have access to the containerd socket
+   - Document any container-related groups
+
+4. Verify the Kubernetes cluster is healthy after your checks
+
+Save the following:
+- Containerd socket permissions: /opt/course/15/socket-permissions.txt
+- Containerd config grpc section: /opt/course/15/containerd-grpc.txt
+- List of container-related groups: /opt/course/15/container-groups.txt
+
+Hints:
+- Use `ls -la /run/containerd/containerd.sock` to check socket permissions
+- Use `grep -A10 "\[grpc\]" /etc/containerd/config.toml` to check listener config
+- Use `getent group | grep -iE "container|docker"` to find container-related groups
