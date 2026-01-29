@@ -12,7 +12,7 @@ Task:
 2. Configure the Ingress to use the existing TLS secret `tls-secret`
 
 3. Configure the Ingress to redirect all HTTP traffic to HTTPS
-      - Use the annotation: nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      - Use the annotations: nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 4. The Ingress should route traffic for host `secure.example.com` to the `secure-service` on port 80
 
