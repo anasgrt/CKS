@@ -70,14 +70,13 @@ fi
 
 # Check SSL redirect annotation
 echo ""
-echo "Checking SSL redirect annotations..."
+echo "Checking SSL redirect annotation..."
 SSL_REDIRECT=$(kubectl get ingress secure-ingress -n secure-app -o jsonpath='{.metadata.annotations.nginx\.ingress\.kubernetes\.io/ssl-redirect}' 2>/dev/null || echo "")
-FORCE_SSL=$(kubectl get ingress secure-ingress -n secure-app -o jsonpath='{.metadata.annotations.nginx\.ingress\.kubernetes\.io/force-ssl-redirect}' 2>/dev/null || echo "")
 
-if [ "$SSL_REDIRECT" == "true" ] || [ "$FORCE_SSL" == "true" ]; then
+if [ "$SSL_REDIRECT" == "true" ]; then
     echo -e "${GREEN}✓ SSL redirect annotation is configured${NC}"
 else
-    echo -e "${YELLOW}⚠ SSL redirect annotation recommended (ssl-redirect or force-ssl-redirect)${NC}"
+    echo -e "${YELLOW}⚠ SSL redirect annotation (ssl-redirect: true) recommended${NC}"
 fi
 
 # Check output file
