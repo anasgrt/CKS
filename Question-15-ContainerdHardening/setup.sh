@@ -16,35 +16,42 @@ fi
 
 echo "Target node: $WORKER_NODE"
 
-# Setup on worker node: create developer user
-echo "Setting up scenario on $WORKER_NODE..."
+# Setup on worker node: create vulnerable configuration
+echo "Setting up vulnerable configuration on $WORKER_NODE..."
 ssh "$WORKER_NODE" << 'REMOTE_SCRIPT'
+# Create containerd group if not exists
+if ! getent group containerd &>/dev/null; then
+    sudo groupadd containerd
+    echo "✓ Created group 'containerd'"
+fi
+
 # Create developer user if not exists
 if ! id developer &>/dev/null; then
     sudo useradd -m -s /bin/bash developer
     echo "✓ Created user 'developer'"
-else
-    echo "✓ User 'developer' already exists"
 fi
 
-# Show current containerd socket permissions
+# Add developer to containerd group (insecure - for the exercise)
+sudo usermod -aG containerd developer
+echo "✓ Added 'developer' to containerd group"
+
+# Change socket group to containerd (insecure - for the exercise)
+sudo chown root:containerd /run/containerd/containerd.sock
+sudo chmod 660 /run/containerd/containerd.sock
+echo "✓ Changed socket group to 'containerd' (insecure)"
+
+# Show current state
 echo ""
 echo "Current containerd socket permissions:"
-ls -la /run/containerd/containerd.sock 2>/dev/null || echo "Socket not found at expected location"
+ls -la /run/containerd/containerd.sock
 
-# Show containerd config location
-echo ""
-echo "Containerd config:"
-ls -la /etc/containerd/config.toml 2>/dev/null || echo "Config not found"
-
-# Show user info
 echo ""
 echo "User 'developer' groups:"
 id developer
 REMOTE_SCRIPT
 
 echo ""
-echo "✓ Environment ready!"
+echo "✓ Vulnerable environment ready!"
 echo ""
-echo "Task: SSH to $WORKER_NODE and verify containerd security"
+echo "Task: SSH to $WORKER_NODE and harden containerd security"
 echo "  ssh $WORKER_NODE"

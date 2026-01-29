@@ -89,6 +89,24 @@ else
 fi
 
 echo ""
+
+# Check developer is not in containerd group
+echo "Part 4: User Group Check"
+echo "─────────────────────────"
+WORKER_NODE=$(kubectl get nodes --selector='!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+if [ -z "$WORKER_NODE" ]; then
+    WORKER_NODE="node-01"
+fi
+
+DEV_GROUPS=$(ssh "$WORKER_NODE" "id developer 2>/dev/null" || echo "user not found")
+if echo "$DEV_GROUPS" | grep -qi "containerd"; then
+    echo -e "${RED}✗ User 'developer' is still in containerd group${NC}"
+    PASS=false
+else
+    echo -e "${GREEN}✓ User 'developer' is not in containerd group${NC}"
+fi
+
+echo ""
 echo "=============================================="
 echo "Summary"
 echo "=============================================="

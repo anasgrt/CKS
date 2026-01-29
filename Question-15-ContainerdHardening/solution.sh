@@ -19,6 +19,9 @@ echo "STEP 2: Save current socket permissions"
 echo "───────────────────────────────────────"
 echo ""
 cat << 'EOF'
+# Create output directory
+mkdir -p /opt/course/15
+
 # Check and save current permissions
 ls -la /run/containerd/containerd.sock > /opt/course/15/socket-before.txt
 cat /opt/course/15/socket-before.txt
