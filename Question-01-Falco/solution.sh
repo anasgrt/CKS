@@ -10,23 +10,29 @@ echo "STEP 1: Check Falco logs for suspicious activity"
 echo "─────────────────────────────────────────────────"
 echo ""
 cat << 'EOF'
-# Method 1: Using journalctl (systemd)
-journalctl -u falco -f
+# Falco runs as a systemd service on each worker node
 
-# Method 2: Check Falco log file
-sudo cat /var/log/falco/falco.log | grep -i "mem\|memory"
+# First, find which node the apps pods are running on:
+kubectl get pods -n apps -o wide
 
-# Method 3: Tail Falco logs in real-time
-sudo tail -f /var/log/falco/falco.log
+# SSH to that node and check Falco logs with journalctl:
+ssh <node-name> journalctl -u falco --no-pager | grep -i mem
+
+# Or follow logs in real-time:
+ssh <node-name> journalctl -u falco -f
+
+# Example commands:
+ssh node-02 journalctl -u falco --no-pager | grep -i mem
+ssh node-02 journalctl -u falco -f
 
 # Look for alerts like:
 # "Memory device /dev/mem opened"
 # The alert will contain: pod=ollama-xxxxx ns=apps
 
 # Example Falco output:
-# 15:30:45.123456789: Warning Memory device /dev/mem opened
-#   (user=root user_loginuid=-1 command=head -c 1 /hostdev/mem pid=12345
-#    container_id=abc123 container_name=ollama pod=ollama-abc123 ns=apps)
+# Jan 29 15:30:45 node-02 falco: Warning Memory device /dev/mem opened
+#   (user=root command=head -c 1 /hostdev/mem container_id=abc123
+#    container_name=ollama pod=ollama-abc123 ns=apps)
 EOF
 
 echo ""
@@ -84,11 +90,11 @@ echo ""
 # Actually get the pod name for the solution
 POD_NAME=$(kubectl get pods -n apps -l app=ollama -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "ollama-xxxxx")
 
-echo "# 1. Check Falco logs for suspicious pod"
-echo "sudo grep -i 'mem' /var/log/falco/falco.log | tail -5"
+echo "# 1. Find which node pods are running on"
+echo "kubectl get pods -n apps -o wide"
 echo ""
-echo "# 2. List pods to confirm"
-echo "kubectl get pods -n apps"
+echo "# 2. Check Falco logs on that node (e.g., node-02)"
+echo "ssh node-02 journalctl -u falco --no-pager | grep -i mem"
 echo ""
 echo "# 3. Scale down the offending deployment (ollama)"
 echo "kubectl scale deployment ollama -n apps --replicas=0"
@@ -96,19 +102,19 @@ echo ""
 echo "# 4. Create output directory and save findings"
 echo "mkdir -p /opt/course/01"
 echo ""
-echo "# 5. Save pod name (get it before scaling down!)"
+echo "# 5. Save pod name (get it BEFORE scaling down!)"
 echo "kubectl get pods -n apps -l app=ollama -o jsonpath='{.items[0].metadata.name}' > /opt/course/01/pod-name.txt"
 echo ""
 echo "# 6. Save Falco alert line"
-echo "sudo grep -i 'ollama.*mem\|mem.*ollama' /var/log/falco/falco.log | tail -1 > /opt/course/01/falco-alert.txt"
+echo "ssh node-02 journalctl -u falco --no-pager | grep -i 'ollama.*mem' | tail -1 > /opt/course/01/falco-alert.txt"
 echo ""
 echo "KEY POINTS:"
+echo "  - Falco runs as a systemd service on each worker node"
 echo "  - Falco detects runtime security threats via syscall monitoring"
 echo "  - The 'ollama' deployment was accessing /dev/mem (memory device)"
 echo "  - Look for pod name in Falco alerts: pod=ollama-xxxxx"
-echo "  - Custom Falco rules are in /etc/falco/rules.d/"
 echo "  - Always verify other deployments are still running"
 echo ""
-echo "FALCO LOG LOCATIONS:"
-echo "  - Systemd: journalctl -u falco"
-echo "  - File:    /var/log/falco/falco.log"
+echo "FALCO LOG LOCATIONS (systemd service):"
+echo "  - journalctl -u falco"
+echo "  - journalctl -u falco-modern-bpf"

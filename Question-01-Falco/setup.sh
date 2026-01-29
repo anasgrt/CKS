@@ -6,84 +6,107 @@ set -e
 echo "Setting up Question 01 - Falco Runtime Security..."
 
 # ============================================================
-# PREREQUISITE: Ensure Falco is installed and running
+# Get list of worker nodes
 # ============================================================
-echo "Checking Falco installation..."
+echo "Detecting cluster nodes..."
+WORKER_NODES=$(kubectl get nodes --no-headers -o custom-columns=":metadata.name" | grep -v "cplane\|control\|master" || true)
 
-if ! command -v falco &> /dev/null && ! systemctl list-unit-files | grep -q falco; then
-    echo "⚠️  Falco is not installed. Installing Falco..."
-
-    # Add Falco repository and install
-    curl -fsSL https://falco.org/repo/falcosecurity-packages.asc | \
-        sudo gpg --dearmor -o /usr/share/keyrings/falco-archive-keyring.gpg
-
-    echo "deb [signed-by=/usr/share/keyrings/falco-archive-keyring.gpg] https://download.falco.org/packages/deb stable main" | \
-        sudo tee /etc/apt/sources.list.d/falcosecurity.list
-
-    sudo apt-get update -y
-    sudo apt-get install -y falco
-
-    echo "✓ Falco installed successfully"
+if [ -z "$WORKER_NODES" ]; then
+    echo "No worker nodes found, will install Falco on all nodes..."
+    WORKER_NODES=$(kubectl get nodes --no-headers -o custom-columns=":metadata.name")
 fi
 
-# Ensure Falco service is running
-if systemctl is-active --quiet falco 2>/dev/null; then
-    echo "✓ Falco service is already running"
-else
-    echo "Starting Falco service..."
-    sudo systemctl enable falco 2>/dev/null || true
-    sudo systemctl start falco 2>/dev/null || true
+echo "Worker nodes: $WORKER_NODES"
 
-    # If systemd fails, try running falco directly in background
-    if ! systemctl is-active --quiet falco 2>/dev/null; then
-        echo "Starting Falco manually..."
-        sudo mkdir -p /var/log/falco
-        sudo nohup falco -o "file_output.enabled=true" \
-                         -o "file_output.filename=/var/log/falco/falco.log" \
-                         > /dev/null 2>&1 &
-        sleep 3
-    fi
-fi
+# ============================================================
+# Install Falco as systemd service on each worker node
+# ============================================================
+install_falco_on_node() {
+    local NODE=$1
+    echo ""
+    echo "Installing Falco on node: $NODE"
+    echo "─────────────────────────────────────────"
 
-# Create custom Falco rule for /dev/mem detection
-echo "Configuring Falco rules for memory device detection..."
-sudo mkdir -p /etc/falco/rules.d
+    ssh -o StrictHostKeyChecking=no "$NODE" bash << 'REMOTE_SCRIPT'
+        set -e
 
-cat << 'FALCO_RULE' | sudo tee /etc/falco/rules.d/dev_mem_access.yaml > /dev/null
+        # Check if Falco is already installed and running
+        if systemctl is-active --quiet falco 2>/dev/null || systemctl is-active --quiet falco-modern-bpf 2>/dev/null; then
+            echo "✓ Falco is already running on this node"
+            exit 0
+        fi
+
+        echo "Installing Falco..."
+
+        # Install prerequisites
+        apt-get update -qq
+        apt-get install -y -qq curl gnupg2 apt-transport-https ca-certificates
+
+        # Add Falco repository
+        if [ ! -f /usr/share/keyrings/falco-archive-keyring.gpg ]; then
+            curl -fsSL https://falco.org/repo/falcosecurity-packages.asc | \
+                gpg --dearmor -o /usr/share/keyrings/falco-archive-keyring.gpg
+        fi
+
+        if [ ! -f /etc/apt/sources.list.d/falcosecurity.list ]; then
+            echo "deb [signed-by=/usr/share/keyrings/falco-archive-keyring.gpg] https://download.falco.org/packages/deb stable main" | \
+                tee /etc/apt/sources.list.d/falcosecurity.list
+        fi
+
+        apt-get update -qq
+
+        # Install Falco with modern eBPF driver (no kernel headers needed)
+        FALCO_FRONTEND=noninteractive apt-get install -y -qq falco
+
+        # Configure Falco for container runtime
+        mkdir -p /etc/falco/rules.d
+
+        # Create custom rule for /dev/mem detection
+        cat > /etc/falco/rules.d/dev_mem_access.yaml << 'FALCO_RULE'
 # Custom rule to detect /dev/mem access
-# Falco sees the actual host path even when accessed via container mount
 - rule: Memory device access detected
   desc: Detect read access to /dev/mem which can be used for memory dumping attacks
   condition: >
     evt.type in (open, openat, openat2) and
     evt.dir = < and
-    (fd.name = "/dev/mem" or fd.name contains "/mem") and
+    fd.name startswith /dev/mem and
     container.id != host
-  output: >
-    Memory device /dev/mem opened (user=%user.name user_loginuid=%user.loginuid command=%proc.cmdline pid=%proc.pid container_id=%container.id container_name=%container.name pod=%k8s.pod.name ns=%k8s.ns.name)
+  output: "Memory device /dev/mem opened (user=%user.name command=%proc.cmdline container_id=%container.id container_name=%container.name pod=%k8s.pod.name ns=%k8s.ns.name)"
   priority: WARNING
-  tags: [host, container, memory, cks]
+  tags: [container, memory, cks]
 FALCO_RULE
 
-# Restart Falco to load new rules
-echo "Restarting Falco to apply new rules..."
-sudo systemctl restart falco 2>/dev/null || \
-    (sudo pkill falco 2>/dev/null; sleep 2; \
-     sudo nohup falco -o "file_output.enabled=true" \
-                      -o "file_output.filename=/var/log/falco/falco.log" \
-                      > /dev/null 2>&1 &)
-sleep 3
+        # Enable and start Falco service (try modern-bpf first, then regular)
+        systemctl daemon-reload
+        systemctl enable falco-modern-bpf.service 2>/dev/null || systemctl enable falco.service 2>/dev/null || true
+        systemctl restart falco-modern-bpf.service 2>/dev/null || systemctl restart falco.service 2>/dev/null || true
 
-# Verify Falco is running
-if pgrep -x falco > /dev/null || systemctl is-active --quiet falco 2>/dev/null; then
-    echo "✓ Falco is running and configured"
-else
-    echo "⚠️  Warning: Falco may not be running. Check manually."
-fi
+        # Wait for service to start
+        sleep 3
+
+        # Verify Falco is running
+        if systemctl is-active --quiet falco-modern-bpf 2>/dev/null || systemctl is-active --quiet falco 2>/dev/null; then
+            echo "✓ Falco service started successfully"
+        else
+            echo "⚠ Falco service may not have started. Checking status..."
+            systemctl status falco-modern-bpf --no-pager 2>/dev/null || systemctl status falco --no-pager 2>/dev/null || true
+        fi
+REMOTE_SCRIPT
+}
+
+# Install Falco on each worker node
+for NODE in $WORKER_NODES; do
+    install_falco_on_node "$NODE"
+done
+
+echo ""
+echo "✓ Falco installation complete on all worker nodes"
 
 # ============================================================
-# Create Kubernetes Resources
+# Create Kubernetes Resources for the Question
 # ============================================================
+echo ""
+echo "Creating Kubernetes resources..."
 
 # Create namespace
 kubectl create namespace apps --dry-run=client -o yaml | kubectl apply -f -
@@ -194,12 +217,26 @@ kubectl wait --for=condition=ready pod -l app=nvidia-gpu -n apps --timeout=60s 2
 kubectl wait --for=condition=ready pod -l app=cpu -n apps --timeout=60s 2>/dev/null || true
 kubectl wait --for=condition=ready pod -l app=ollama -n apps --timeout=60s 2>/dev/null || true
 
+# Give Falco time to detect the activity
+sleep 5
+
 echo ""
 echo "✓ Environment ready!"
 echo ""
 echo "Namespace: apps"
 echo "Deployments: nvidia-gpu, cpu, ollama"
 echo ""
-echo "Check deployments with: kubectl get deployments -n apps"
-echo "Check Falco logs with: journalctl -u falco -f"
-echo "                   or: sudo cat /var/log/falco/falco.log"
+echo "═══════════════════════════════════════════════════════════════════"
+echo "HOW TO VIEW FALCO LOGS:"
+echo "═══════════════════════════════════════════════════════════════════"
+echo ""
+echo "1. Find which node the suspicious pod is running on:"
+echo "   kubectl get pods -n apps -o wide"
+echo ""
+echo "2. SSH to that node and check Falco logs with journalctl:"
+echo "   ssh <node-name> journalctl -u falco -f"
+echo "   ssh <node-name> journalctl -u falco | grep -i mem"
+echo ""
+echo "Example:"
+echo "   ssh node-02 journalctl -u falco --no-pager | grep -i mem"
+echo ""

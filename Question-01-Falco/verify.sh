@@ -11,13 +11,21 @@ PASS=true
 echo "Checking Falco Runtime Security Detection..."
 echo ""
 
-# First, verify Falco is running (prerequisite check)
+# First, verify Falco is running on worker nodes (prerequisite check)
 echo "Prerequisite Checks:"
 echo "───────────────────"
-if pgrep -x falco > /dev/null || systemctl is-active --quiet falco 2>/dev/null; then
-    echo -e "${GREEN}✓ Falco is running${NC}"
+# Check Falco on worker nodes
+WORKER_NODES=$(kubectl get nodes --no-headers -o custom-columns=":metadata.name" | grep -v "cplane\|control\|master" || true)
+FALCO_RUNNING=0
+for NODE in $WORKER_NODES; do
+    if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 "$NODE" "systemctl is-active --quiet falco-modern-bpf 2>/dev/null || systemctl is-active --quiet falco 2>/dev/null" 2>/dev/null; then
+        FALCO_RUNNING=$((FALCO_RUNNING + 1))
+    fi
+done
+if [ "$FALCO_RUNNING" -ge 1 ]; then
+    echo -e "${GREEN}✓ Falco service is running on $FALCO_RUNNING worker node(s)${NC}"
 else
-    echo -e "${YELLOW}⚠ Falco may not be running - some checks may fail${NC}"
+    echo -e "${YELLOW}⚠ Falco may not be running on worker nodes - some checks may fail${NC}"
 fi
 echo ""
 

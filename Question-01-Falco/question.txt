@@ -19,6 +19,8 @@ Task:
    - Save the Falco alert line to: /opt/course/01/falco-alert.txt
 
 Hints:
-- Falco logs can be viewed with: journalctl -u falco -f
-- Or check: /var/log/falco/falco.log
+- Falco runs as a systemd service on each worker node
+- Find which node the pod is on: kubectl get pods -n apps -o wide
+- SSH to the node and view Falco logs: ssh <node> journalctl -u falco
+- Or follow logs: ssh <node> journalctl -u falco -f
 - Look for alerts related to memory device access
