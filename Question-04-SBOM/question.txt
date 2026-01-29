@@ -9,7 +9,9 @@ for supply chain security purposes.
 Task:
 1. Use the `bom` tool to generate an SBOM for the container image:
 
-   nginx:1.25-alpine
+   nginx:1.25-alpine@sha256:721fa00bc549df26b3e67cc558ff176112d4ba69847537766f3c28e171d180e7
+
+   (This is the linux/amd64 variant)
 
    Save the SBOM to: /opt/course/04/sbom.spdx
 

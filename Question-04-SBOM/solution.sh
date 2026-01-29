@@ -14,32 +14,25 @@ echo ""
 echo "STEP 2: Generate SBOM using bom"
 echo "───────────────────────────────"
 cat << 'EOF'
-bom generate -o /opt/course/04/sbom.spdx --image nginx:1.25-alpine
+# Use the specific amd64 digest to avoid multiarch issues
+bom generate -o /opt/course/04/sbom.spdx --image nginx:1.25-alpine@sha256:721fa00bc549df26b3e67cc558ff176112d4ba69847537766f3c28e171d180e7
 EOF
 echo ""
 
 echo "STEP 3: Query the SBOM for SSL packages"
 echo "───────────────────────────────────────"
 cat << 'EOF'
-# Option A: Use grep directly on the SBOM file
-grep -i "ssl\|openssl" /opt/course/04/sbom.spdx > /opt/course/04/ssl-packages.txt
-
-# Option B: Use bom document outline and grep
-bom document outline /opt/course/04/sbom.spdx | grep -i ssl > /opt/course/04/ssl-packages.txt
+# Use bom document query to find packages containing ssl or openssl
+bom document query /opt/course/04/sbom.spdx 'name:ssl' --fields name,version > /opt/course/04/ssl-packages.txt
+bom document query /opt/course/04/sbom.spdx 'name:openssl' --fields name,version >> /opt/course/04/ssl-packages.txt
 EOF
 echo ""
 
 echo "STEP 4: Verify libcrypto3 package and get version"
 echo "─────────────────────────────────────────────────"
 cat << 'EOF'
-# Search for libcrypto3 and extract version
-grep -i "libcrypto3" /opt/course/04/sbom.spdx | grep -oP 'libcrypto3[@-]\K[0-9.]+' > /opt/course/04/libcrypto-version.txt
-
-# Or using awk to extract version:
-grep -i "libcrypto3" /opt/course/04/sbom.spdx | head -1 | awk -F'@' '{print $2}' > /opt/course/04/libcrypto-version.txt
-
-# Or simply grep and manually identify version:
-grep -i "libcrypto3" /opt/course/04/sbom.spdx > /opt/course/04/libcrypto-version.txt
+# Query for libcrypto3 package
+bom document query /opt/course/04/sbom.spdx 'name:libcrypto3' --fields name,version > /opt/course/04/libcrypto-version.txt
 EOF
 echo ""
 
@@ -49,9 +42,10 @@ echo "════════════════════════�
 echo ""
 cat << 'EOF'
 mkdir -p /opt/course/04
-bom generate -o /opt/course/04/sbom.spdx --image nginx:1.25-alpine
-grep -i "ssl\|openssl" /opt/course/04/sbom.spdx > /opt/course/04/ssl-packages.txt
-grep -i "libcrypto3" /opt/course/04/sbom.spdx > /opt/course/04/libcrypto-version.txt
+bom generate -o /opt/course/04/sbom.spdx --image nginx:1.25-alpine@sha256:721fa00bc549df26b3e67cc558ff176112d4ba69847537766f3c28e171d180e7
+bom document query /opt/course/04/sbom.spdx 'name:ssl' --fields name,version > /opt/course/04/ssl-packages.txt
+bom document query /opt/course/04/sbom.spdx 'name:openssl' --fields name,version >> /opt/course/04/ssl-packages.txt
+bom document query /opt/course/04/sbom.spdx 'name:libcrypto3' --fields name,version > /opt/course/04/libcrypto-version.txt
 EOF
 echo ""
 
@@ -61,6 +55,9 @@ echo "════════════════════════�
 cat << 'EOF'
 # View SBOM structure/outline:
 bom document outline /opt/course/04/sbom.spdx
+
+# Query packages by name:
+bom document query /opt/course/04/sbom.spdx 'name:packagename' --fields name,version
 
 # The outline shows packages in a tree format like:
 #  📦 DESCRIBES 1 Packages
