@@ -11,8 +11,19 @@ PASS=true
 echo "Checking Falco Runtime Security Detection..."
 echo ""
 
+# First, verify Falco is running (prerequisite check)
+echo "Prerequisite Checks:"
+echo "───────────────────"
+if pgrep -x falco > /dev/null || systemctl is-active --quiet falco 2>/dev/null; then
+    echo -e "${GREEN}✓ Falco is running${NC}"
+else
+    echo -e "${YELLOW}⚠ Falco may not be running - some checks may fail${NC}"
+fi
+echo ""
+
 # Check if ollama deployment is scaled to 0
-echo "Checking deployment scaling..."
+echo "Deployment Checks:"
+echo "──────────────────"
 OLLAMA_REPLICAS=$(kubectl get deployment ollama -n apps -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "not found")
 
 if [ "$OLLAMA_REPLICAS" == "0" ]; then
@@ -41,7 +52,8 @@ else
 fi
 
 echo ""
-echo "Checking output files..."
+echo "Output File Checks:"
+echo "───────────────────"
 
 # Check pod-name.txt exists and contains ollama pod name
 if [ -f "/opt/course/01/pod-name.txt" ]; then
@@ -49,7 +61,7 @@ if [ -f "/opt/course/01/pod-name.txt" ]; then
 
     POD_NAME=$(cat /opt/course/01/pod-name.txt | tr -d '[:space:]')
     if [[ "$POD_NAME" == *"ollama"* ]]; then
-        echo -e "${GREEN}✓ Correct pod name identified (contains 'ollama')${NC}"
+        echo -e "${GREEN}✓ Correct pod name identified (contains 'ollama'): $POD_NAME${NC}"
     else
         echo -e "${RED}✗ Pod name should contain 'ollama' (found: $POD_NAME)${NC}"
         PASS=false
@@ -59,15 +71,26 @@ else
     PASS=false
 fi
 
-# Check falco-alert.txt exists
+# Check falco-alert.txt exists and has meaningful content
 if [ -f "/opt/course/01/falco-alert.txt" ]; then
     echo -e "${GREEN}✓ falco-alert.txt exists${NC}"
 
-    # Check if it contains relevant content
-    if grep -qi "mem\|memory\|device\|ollama" /opt/course/01/falco-alert.txt 2>/dev/null; then
+    ALERT_CONTENT=$(cat /opt/course/01/falco-alert.txt)
+
+    # Check if it contains relevant Falco output indicators
+    if echo "$ALERT_CONTENT" | grep -qiE "mem|memory|device|ollama|Notice|Warning"; then
         echo -e "${GREEN}✓ falco-alert.txt contains relevant alert information${NC}"
+
+        # Extra credit: Check if it looks like an actual Falco log line
+        if echo "$ALERT_CONTENT" | grep -qE "[0-9]{2}:[0-9]{2}:[0-9]{2}|container=|container_name=|pod=|ns="; then
+            echo -e "${GREEN}✓ Alert appears to be a valid Falco log entry${NC}"
+        else
+            echo -e "${YELLOW}⚠ Alert may not be a direct Falco log line (acceptable if summary)${NC}"
+        fi
     else
-        echo -e "${YELLOW}⚠ falco-alert.txt should contain memory/device related alert${NC}"
+        echo -e "${RED}✗ falco-alert.txt should contain memory/device related alert or 'ollama' reference${NC}"
+        echo -e "${YELLOW}  Content: $ALERT_CONTENT${NC}"
+        PASS=false
     fi
 else
     echo -e "${RED}✗ falco-alert.txt not found at /opt/course/01/falco-alert.txt${NC}"
