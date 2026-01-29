@@ -25,9 +25,13 @@ echo ""
 cat << 'EOF'
 ssh node01
 
+# Check available kubeadm versions
+sudo apt update
+sudo apt-cache madison kubeadm
+
 # Unhold, update, install kubeadm, then hold
 sudo apt-mark unhold kubeadm && \
-sudo apt-get update && sudo apt-get install -y kubeadm='1.34.1-*' && \
+sudo apt-get update && sudo apt-get install -y kubeadm='1.34.1-1.1' && \
 sudo apt-mark hold kubeadm
 
 # Verify kubeadm version
@@ -59,7 +63,7 @@ echo ""
 cat << 'EOF'
 # Back on worker node via SSH
 sudo apt-mark unhold kubelet kubectl && \
-sudo apt-get update && sudo apt-get install -y kubelet='1.34.1-*' kubectl='1.34.1-*' && \
+sudo apt-get update && sudo apt-get install -y kubelet='1.34.1-1.1' kubectl='1.34.1-1.1' && \
 sudo apt-mark hold kubelet kubectl
 EOF
 
@@ -109,26 +113,30 @@ echo ""
 echo "# 1. SSH to worker node"
 echo "ssh node01"
 echo ""
-echo "# 2. Upgrade kubeadm"
+echo "# 2. Check available versions"
+echo "sudo apt update"
+echo "sudo apt-cache madison kubeadm"
+echo ""
+echo "# 3. Upgrade kubeadm"
 echo "sudo apt-mark unhold kubeadm && \\"
-echo "sudo apt-get update && sudo apt-get install -y kubeadm='1.34.1-*' && \\"
+echo "sudo apt-get update && sudo apt-get install -y kubeadm='1.34.1-1.1' && \\"
 echo "sudo apt-mark hold kubeadm"
 echo ""
-echo "# 3. Upgrade node config"
+echo "# 4. Upgrade node config"
 echo "sudo kubeadm upgrade node"
 echo ""
-echo "# 4. Drain (from controlplane)"
+echo "# 5. Drain (from controlplane)"
 echo "kubectl drain node01 --ignore-daemonsets"
 echo ""
-echo "# 5. Upgrade kubelet & kubectl (on worker)"
+echo "# 6. Upgrade kubelet & kubectl (on worker)"
 echo "sudo apt-mark unhold kubelet kubectl && \\"
-echo "sudo apt-get update && sudo apt-get install -y kubelet='1.34.1-*' kubectl='1.34.1-*' && \\"
+echo "sudo apt-get update && sudo apt-get install -y kubelet='1.34.1-1.1' kubectl='1.34.1-1.1' && \\"
 echo "sudo apt-mark hold kubelet kubectl"
 echo ""
-echo "# 6. Restart kubelet"
+echo "# 7. Restart kubelet"
 echo "sudo systemctl daemon-reload && sudo systemctl restart kubelet"
 echo ""
-echo "# 7. Exit and uncordon"
+echo "# 8. Exit and uncordon"
 echo "exit"
 echo "kubectl uncordon node01"
 echo ""
