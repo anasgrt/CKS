@@ -29,8 +29,8 @@ install_bom() {
         aarch64) ARCH="arm64" ;;
     esac
 
-    # Download and install
-    curl -sSfL "https://github.com/kubernetes-sigs/bom/releases/download/${BOM_VERSION}/bom-linux-${ARCH}" -o /usr/local/bin/bom
+    # Download and install (bom uses format: bom-amd64-linux)
+    curl -sSfL "https://github.com/kubernetes-sigs/bom/releases/download/${BOM_VERSION}/bom-${ARCH}-linux" -o /usr/local/bin/bom
     chmod +x /usr/local/bin/bom
 
     echo "✓ bom installed successfully"
