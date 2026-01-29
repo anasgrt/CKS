@@ -10,8 +10,8 @@ echo "STEP 1: SSH to the node and backup config"
 echo "──────────────────────────────────────────"
 echo ""
 cat << 'EOF'
-# SSH to the worker node
-ssh node-01
+# SSH to the worker node (determine node name with: kubectl get nodes)
+ssh <worker-node>
 
 # Create output directory
 mkdir -p /opt/course/13

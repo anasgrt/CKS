@@ -9,7 +9,14 @@ NC='\033[0m'
 
 PASS=true
 TARGET_VERSION="v1.34.1"
-WORKER_NODE="node-01"
+
+# Automatically detect worker node (first non-control-plane node)
+WORKER_NODE=$(kubectl get nodes --selector='!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+
+if [ -z "$WORKER_NODE" ]; then
+    echo -e "${RED}✗ No worker nodes found in cluster${NC}"
+    exit 1
+fi
 
 echo "════════════════════════════════════════════════════════════"
 echo "Verifying Worker Node Upgrade: $WORKER_NODE → $TARGET_VERSION"

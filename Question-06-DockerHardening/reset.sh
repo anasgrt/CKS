@@ -4,9 +4,11 @@
 rm -rf /opt/course/06
 
 # Get the worker node
-WORKER_NODE=$(kubectl get nodes --selector='!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}')
+WORKER_NODE=$(kubectl get nodes --selector='!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+
 if [ -z "$WORKER_NODE" ]; then
-    WORKER_NODE="node-01"
+    echo "✗ No worker nodes found in cluster"
+    exit 1
 fi
 
 echo "Resetting Docker configuration on $WORKER_NODE..."

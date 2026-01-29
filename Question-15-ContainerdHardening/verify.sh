@@ -7,9 +7,16 @@ YELLOW='\033[0;33m'
 NC='\033[0m'
 
 PASS=true
-NODE="node-01"
 
-echo "Checking Containerd Security Hardening..."
+# Automatically detect worker node
+NODE=$(kubectl get nodes --selector='!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+
+if [ -z "$NODE" ]; then
+    echo -e "${RED}✗ No worker nodes found in cluster${NC}"
+    exit 1
+fi
+
+echo "Checking Containerd Security Hardening on $NODE..."
 echo ""
 
 # Check socket-before.txt

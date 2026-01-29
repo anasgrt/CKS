@@ -10,8 +10,8 @@ echo "STEP 1: SSH to the node"
 echo "───────────────────────"
 echo ""
 cat << 'EOF'
-# SSH to the specified node
-ssh node-01
+# SSH to the specified node (determine node name with: kubectl get nodes)
+ssh <worker-node>
 EOF
 
 echo ""

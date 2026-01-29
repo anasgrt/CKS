@@ -1,7 +1,13 @@
 #!/bin/bash
 # Reset Question 15 - Containerd Security Hardening
 
-NODE="node-01"
+# Automatically detect worker node
+NODE=$(kubectl get nodes --selector='!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+
+if [ -z "$NODE" ]; then
+    echo "✗ No worker nodes found in cluster"
+    exit 1
+fi
 
 echo "Resetting Question 15 on $NODE..."
 

@@ -14,8 +14,8 @@ echo ""
 cat << 'EOF'
 kubectl get nodes
 
-# Save the current version
-kubectl get nodes node01 -o jsonpath='{.status.nodeInfo.kubeletVersion}' > /opt/course/02/node-version-before.txt
+# Save the current version (replace <worker-node> with actual node name)
+kubectl get nodes <worker-node> -o jsonpath='{.status.nodeInfo.kubeletVersion}' > /opt/course/02/node-version-before.txt
 EOF
 
 echo ""
@@ -23,7 +23,7 @@ echo "STEP 2: SSH to the worker node and upgrade kubeadm"
 echo "──────────────────────────────────────────────────"
 echo ""
 cat << 'EOF'
-ssh node01
+ssh <worker-node>
 
 # Check available kubeadm versions
 sudo apt update
@@ -53,7 +53,7 @@ echo "────────────────────────�
 echo ""
 cat << 'EOF'
 # Execute on controlplane (not on worker node)
-kubectl drain node01 --ignore-daemonsets
+kubectl drain <worker-node> --ignore-daemonsets
 EOF
 
 echo ""
@@ -87,7 +87,7 @@ echo "STEP 7: Uncordon the node (from controlplane)"
 echo "─────────────────────────────────────────────"
 echo ""
 cat << 'EOF'
-kubectl uncordon node01
+kubectl uncordon <worker-node>
 
 # Verify node is Ready
 kubectl get nodes
@@ -98,7 +98,7 @@ echo "STEP 8: Save the post-upgrade version"
 echo "─────────────────────────────────────"
 echo ""
 cat << 'EOF'
-kubectl get nodes node01 -o jsonpath='{.status.nodeInfo.kubeletVersion}' > /opt/course/02/node-version-after.txt
+kubectl get nodes <worker-node> -o jsonpath='{.status.nodeInfo.kubeletVersion}' > /opt/course/02/node-version-after.txt
 
 # Verify
 cat /opt/course/02/node-version-before.txt
@@ -111,7 +111,7 @@ echo "QUICK REFERENCE (per Official K8s Docs):"
 echo "═══════════════════════════════════════════════════════════════════"
 echo ""
 echo "# 1. SSH to worker node"
-echo "ssh node01"
+echo "ssh <worker-node>"
 echo ""
 echo "# 2. Check available versions"
 echo "sudo apt update"
@@ -126,7 +126,7 @@ echo "# 4. Upgrade node config"
 echo "sudo kubeadm upgrade node"
 echo ""
 echo "# 5. Drain (from controlplane)"
-echo "kubectl drain node01 --ignore-daemonsets"
+echo "kubectl drain <worker-node> --ignore-daemonsets"
 echo ""
 echo "# 6. Upgrade kubelet & kubectl (on worker)"
 echo "sudo apt-mark unhold kubelet kubectl && \\"
@@ -138,7 +138,7 @@ echo "sudo systemctl daemon-reload && sudo systemctl restart kubelet"
 echo ""
 echo "# 8. Exit and uncordon"
 echo "exit"
-echo "kubectl uncordon node01"
+echo "kubectl uncordon <worker-node>"
 echo ""
 echo "KEY POINTS:"
 echo "  - Upgrade kubeadm FIRST, then run kubeadm upgrade node"
