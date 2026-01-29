@@ -27,42 +27,48 @@ install_falco_on_node() {
     echo "Installing Falco on node: $NODE"
     echo "─────────────────────────────────────────"
 
-    ssh -o StrictHostKeyChecking=no "$NODE" bash << 'REMOTE_SCRIPT'
-        set -e
+    # Check if Falco is already installed and running
+    FALCO_RUNNING=$(ssh -o StrictHostKeyChecking=no "$NODE" "systemctl is-active falco-modern-bpf 2>/dev/null || systemctl is-active falco 2>/dev/null" || echo "inactive")
 
-        # Check if Falco is already installed and running
-        if systemctl is-active --quiet falco 2>/dev/null || systemctl is-active --quiet falco-modern-bpf 2>/dev/null; then
-            echo "✓ Falco is already running on this node"
-            exit 0
-        fi
+    if [ "$FALCO_RUNNING" = "active" ]; then
+        echo "✓ Falco is already running on $NODE"
+    else
+        echo "Installing Falco on $NODE..."
 
-        echo "Installing Falco..."
+        # Install Falco
+        ssh -o StrictHostKeyChecking=no "$NODE" bash -s << 'INSTALL_SCRIPT'
+            set -e
 
-        # Install prerequisites
-        apt-get update -qq
-        apt-get install -y -qq curl gnupg2 apt-transport-https ca-certificates
+            # Install prerequisites
+            apt-get update -qq
+            apt-get install -y -qq curl gnupg2 apt-transport-https ca-certificates
 
-        # Add Falco repository
-        if [ ! -f /usr/share/keyrings/falco-archive-keyring.gpg ]; then
-            curl -fsSL https://falco.org/repo/falcosecurity-packages.asc | \
-                gpg --dearmor -o /usr/share/keyrings/falco-archive-keyring.gpg
-        fi
+            # Add Falco repository
+            if [ ! -f /usr/share/keyrings/falco-archive-keyring.gpg ]; then
+                curl -fsSL https://falco.org/repo/falcosecurity-packages.asc | \
+                    gpg --dearmor -o /usr/share/keyrings/falco-archive-keyring.gpg
+            fi
 
-        if [ ! -f /etc/apt/sources.list.d/falcosecurity.list ]; then
-            echo "deb [signed-by=/usr/share/keyrings/falco-archive-keyring.gpg] https://download.falco.org/packages/deb stable main" | \
-                tee /etc/apt/sources.list.d/falcosecurity.list
-        fi
+            if [ ! -f /etc/apt/sources.list.d/falcosecurity.list ]; then
+                echo "deb [signed-by=/usr/share/keyrings/falco-archive-keyring.gpg] https://download.falco.org/packages/deb stable main" | \
+                    tee /etc/apt/sources.list.d/falcosecurity.list
+            fi
 
-        apt-get update -qq
+            apt-get update -qq
 
-        # Install Falco with modern eBPF driver (no kernel headers needed)
-        FALCO_FRONTEND=noninteractive apt-get install -y -qq falco
+            # Install Falco with modern eBPF driver (no kernel headers needed)
+            FALCO_FRONTEND=noninteractive apt-get install -y -qq falco
 
-        # Configure Falco for container runtime
-        mkdir -p /etc/falco/rules.d
+            echo "✓ Falco installed"
+INSTALL_SCRIPT
+    fi
 
-        # Create custom rule for /dev/mem detection
-        cat > /etc/falco/rules.d/dev_mem_access.yaml << 'FALCO_RULE'
+    # Always create/update custom rule (even if Falco was already running)
+    echo "Creating custom Falco rule on $NODE..."
+    ssh -o StrictHostKeyChecking=no "$NODE" "mkdir -p /etc/falco/rules.d"
+
+    # Create the custom rule file using echo (avoids nested heredoc issues)
+    ssh -o StrictHostKeyChecking=no "$NODE" 'cat > /etc/falco/rules.d/dev_mem_access.yaml << EOF
 # Custom rule to detect /dev/mem access
 - rule: Memory device access detected
   desc: Detect read access to /dev/mem which can be used for memory dumping attacks
@@ -74,24 +80,30 @@ install_falco_on_node() {
   output: "Memory device /dev/mem opened (user=%user.name command=%proc.cmdline container_id=%container.id container_name=%container.name pod=%k8s.pod.name ns=%k8s.ns.name)"
   priority: WARNING
   tags: [container, memory, cks]
-FALCO_RULE
+EOF'
 
-        # Enable and start Falco service (try modern-bpf first, then regular)
-        systemctl daemon-reload
-        systemctl enable falco-modern-bpf.service 2>/dev/null || systemctl enable falco.service 2>/dev/null || true
-        systemctl restart falco-modern-bpf.service 2>/dev/null || systemctl restart falco.service 2>/dev/null || true
+    # Verify rule was created
+    if ssh -o StrictHostKeyChecking=no "$NODE" "test -f /etc/falco/rules.d/dev_mem_access.yaml"; then
+        echo "✓ Custom Falco rule created"
+    else
+        echo "⚠ Failed to create custom Falco rule"
+    fi
 
-        # Wait for service to start
-        sleep 3
+    # Restart Falco to load the new rule
+    echo "Restarting Falco service on $NODE..."
+    ssh -o StrictHostKeyChecking=no "$NODE" "systemctl restart falco-modern-bpf.service 2>/dev/null || systemctl restart falco.service 2>/dev/null || true"
 
-        # Verify Falco is running
-        if systemctl is-active --quiet falco-modern-bpf 2>/dev/null || systemctl is-active --quiet falco 2>/dev/null; then
-            echo "✓ Falco service started successfully"
-        else
-            echo "⚠ Falco service may not have started. Checking status..."
-            systemctl status falco-modern-bpf --no-pager 2>/dev/null || systemctl status falco --no-pager 2>/dev/null || true
-        fi
-REMOTE_SCRIPT
+    # Wait for service to start
+    sleep 3
+
+    # Verify Falco is running
+    FALCO_STATUS=$(ssh -o StrictHostKeyChecking=no "$NODE" "systemctl is-active falco-modern-bpf 2>/dev/null || systemctl is-active falco 2>/dev/null" || echo "inactive")
+    if [ "$FALCO_STATUS" = "active" ]; then
+        echo "✓ Falco service is running on $NODE"
+    else
+        echo "⚠ Falco service may not be running on $NODE"
+        ssh -o StrictHostKeyChecking=no "$NODE" "systemctl status falco-modern-bpf --no-pager 2>/dev/null || systemctl status falco --no-pager 2>/dev/null" || true
+    fi
 }
 
 # Install Falco on each worker node
