@@ -27,4 +27,4 @@ Save the following:
 - Docker socket permissions after: /opt/course/06/socket-after.txt
 - Docker daemon.json content: /opt/course/06/daemon.json
 
-Note: In the real exam, you will SSH to a specific node (e.g., ssh node01)
+Note: In the real exam, you will SSH to a specific node (e.g., ssh node-01)

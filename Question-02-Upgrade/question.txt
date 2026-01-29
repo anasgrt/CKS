@@ -3,11 +3,11 @@ Domain: Cluster Hardening (15%)
 Difficulty: Medium
 
 Context:
-A worker node named `node01` is running kubelet version 1.34.0.
+A worker node named `node-01` is running kubelet version 1.34.0.
 The control plane is already at version 1.34.1.
 
 Task:
-Upgrade the worker node `node01` to version 1.34.1
+Upgrade the worker node `node-01` to version 1.34.1
 
 Steps required:
 1. Drain the node (cordon and evict pods)

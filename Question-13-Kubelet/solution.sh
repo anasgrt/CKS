@@ -11,7 +11,7 @@ echo "────────────────────────�
 echo ""
 cat << 'EOF'
 # SSH to the worker node
-ssh node01
+ssh node-01
 
 # Create output directory
 mkdir -p /opt/course/13

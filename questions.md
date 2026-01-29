@@ -12,9 +12,9 @@ Question 2: Worker Node Kubernetes Upgrade
 Domain: Cluster Hardening (15%)
 Difficulty: Medium
 Task
-A worker node named `node01` is running kubelet version 1.34.0. The control plane is already at version 1.34.1.
+A worker node named `node-01` is running kubelet version 1.34.0. The control plane is already at version 1.34.1.
 
-Upgrade the worker node `node01` to version 1.34.1
+Upgrade the worker node `node-01` to version 1.34.1
 
 
 Question 3: Ingress with TLS and HTTP to HTTPS Redirect
