@@ -156,6 +156,20 @@ A TLS secret named `tls-secret` exists in namespace `secure-app`. A service name
 
 ### Answer
 
+```bash
+# Generate the Ingress manifest using kubectl
+kubectl create ingress secure-ingress \
+    --rule="secure.example.com/*=secure-service:80,tls=tls-secret" \
+    --annotation="nginx.ingress.kubernetes.io/ssl-redirect=true" \
+    -n secure-app \
+    --dry-run=client -o yaml > /opt/course/03/ingress.yaml
+
+# Apply it
+kubectl apply -f /opt/course/03/ingress.yaml
+```
+
+**Or manually create the YAML:**
+
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
