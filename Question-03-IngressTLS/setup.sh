@@ -88,7 +88,7 @@ EOF
 echo "Waiting for backend deployment to be ready..."
 kubectl rollout status deployment/secure-app -n secure-app --timeout=60s
 
-# Check if ingress-nginx is installed, if not provide instructions
+# Check if ingress-nginx is installed, if not install it
 INGRESS_NS=""
 if kubectl get namespace ingress-nginx &>/dev/null; then
     INGRESS_NS="ingress-nginx"
@@ -98,12 +98,18 @@ fi
 
 if [ -z "$INGRESS_NS" ]; then
     echo ""
-    echo "⚠ WARNING: Nginx Ingress Controller not detected!"
-    echo "Install it with:"
-    echo "  kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.4/deploy/static/provider/cloud/deploy.yaml"
-    echo ""
-    echo "Or for bare-metal/kind:"
-    echo "  kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.4/deploy/static/provider/baremetal/deploy.yaml"
+    echo "Installing Nginx Ingress Controller..."
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.4/deploy/static/provider/baremetal/deploy.yaml
+
+    INGRESS_NS="ingress-nginx"
+
+    echo "Waiting for Ingress Controller to be ready..."
+    kubectl wait --namespace $INGRESS_NS \
+        --for=condition=ready pod \
+        --selector=app.kubernetes.io/component=controller \
+        --timeout=120s 2>/dev/null || echo "Ingress controller may take a moment to be fully ready"
+
+    echo "✓ Nginx Ingress Controller installed"
 fi
 
 # Create output directory
