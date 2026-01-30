@@ -19,9 +19,8 @@ echo "STEP 2: Save current socket permissions"
 echo "───────────────────────────────────────"
 echo ""
 cat << 'EOF'
-# Check and save current permissions
-ls -la /var/run/docker.sock > /opt/course/06/socket-before.txt
-cat /opt/course/06/socket-before.txt
+# Check and save current permissions (directory already exists from setup)
+ls -la /var/run/docker.sock | sudo tee /opt/course/06/socket-before.txt
 EOF
 
 echo ""
@@ -79,8 +78,7 @@ echo "────────────────────────�
 echo ""
 cat << 'EOF'
 # Check new socket permissions
-ls -la /var/run/docker.sock > /opt/course/06/socket-after.txt
-cat /opt/course/06/socket-after.txt
+ls -la /var/run/docker.sock | sudo tee /opt/course/06/socket-after.txt
 
 # Should show: srw-rw---- root root ... /var/run/docker.sock
 EOF
@@ -103,10 +101,13 @@ echo "════════════════════════�
 echo "QUICK COMMANDS (run on node):"
 echo "═══════════════════════════════════════════════════════════════════"
 echo ""
+
+echo "ls -la /var/run/docker.sock | sudo tee /opt/course/06/socket-before.txt"
 echo "sudo gpasswd -d developer docker"
 echo 'echo '"'"'{"group": "root"}'"'"' | sudo tee /etc/docker/daemon.json'
+echo "sudo cp /etc/docker/daemon.json /opt/course/06/daemon.json"
 echo "sudo systemctl restart docker"
-echo "ls -la /var/run/docker.sock"
+echo "ls -la /var/run/docker.sock | sudo tee /opt/course/06/socket-after.txt"
 echo ""
 
 echo "KEY POINTS:"

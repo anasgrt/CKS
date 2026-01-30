@@ -75,9 +75,13 @@ if systemctl is-active docker &>/dev/null; then
     systemctl restart docker || true
 fi
 
+# Create output directory for the exercise
+mkdir -p /opt/course/06
+
 echo "✓ Docker environment configured on $(hostname)"
 echo "  - User 'developer' created and added to docker group"
 echo "  - Insecure daemon.json configuration in place"
+echo "  - Output directory /opt/course/06 created"
 echo "  - Docker socket has group ownership"
 EOFSCRIPT
 
