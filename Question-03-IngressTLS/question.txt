@@ -5,6 +5,7 @@ Difficulty: Easy
 Context:
 A TLS secret named `tls-secret` already exists in the namespace `secure-app`.
 A service named `secure-service` is already running on port 80.
+An Ingress Controller (nginx) is already deployed in the cluster.
 
 Task:
 1. Create an Ingress resource named `secure-ingress` in the `secure-app` namespace
@@ -12,11 +13,16 @@ Task:
 2. Configure the Ingress to use the existing TLS secret `tls-secret`
 
 3. Configure the Ingress to redirect all HTTP traffic to HTTPS
-      - Use the annotations: nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      - Use the annotation: nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 4. The Ingress should route traffic for host `secure.example.com` to the `secure-service` on port 80
 
 5. Save the Ingress manifest to: /opt/course/03/ingress.yaml
+
+6. Verify the Ingress is working by testing with curl:
+      - The host `secure.example.com` should resolve to the Ingress Controller
+      - Use curl to verify HTTPS access works (use -k to skip certificate verification)
+      - The response should contain "Welcome to secure.example.com"
 
 Requirements:
 - Ingress name: secure-ingress
@@ -25,3 +31,9 @@ Requirements:
 - TLS secret: tls-secret
 - Backend service: secure-service
 - Backend port: 80
+
+Verification:
+After completing the task, you should be able to verify with:
+  curl -k --resolve secure.example.com:443:<INGRESS_IP> https://secure.example.com
+
+The response should show "Welcome to secure.example.com"
