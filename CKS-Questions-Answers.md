@@ -235,11 +235,13 @@ mkdir -p /opt/course/04
 bom generate -o /opt/course/04/sbom.spdx --image nginx:1.25-alpine@sha256:721fa00bc549df26b3e67cc558ff176112d4ba69847537766f3c28e171d180e7
 
 # Query for SSL packages
-bom document query /opt/course/04/sbom.spdx 'name:ssl' --fields name,version > /opt/course/04/ssl-packages.txt
-bom document query /opt/course/04/sbom.spdx 'name:openssl' --fields name,version >> /opt/course/04/ssl-packages.txt
+# ⚠️ IMPORTANT: The --fields argument MUST be quoted: --fields 'name,version'
+#    Without quotes, bash interprets the comma as a command separator!
+bom document query /opt/course/04/sbom.spdx 'name:ssl' --fields 'name,version' > /opt/course/04/ssl-packages.txt
+bom document query /opt/course/04/sbom.spdx 'name:openssl' --fields 'name,version' >> /opt/course/04/ssl-packages.txt
 
 # Get libcrypto3 version
-bom document query /opt/course/04/sbom.spdx 'name:libcrypto3' --fields name,version > /opt/course/04/libcrypto-version.txt
+bom document query /opt/course/04/sbom.spdx 'name:libcrypto3' --fields 'name,version' > /opt/course/04/libcrypto-version.txt
 ```
 
 ---
