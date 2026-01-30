@@ -1,39 +1,68 @@
 #!/bin/bash
 # Reset Question 06 - Docker Daemon Security Hardening
 
+echo "Resetting Question 06 - Docker Daemon Hardening..."
+
 rm -rf /opt/course/06
 
-# Get the worker node
-WORKER_NODE=$(kubectl get nodes --selector='!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-
-if [ -z "$WORKER_NODE" ]; then
-    echo "✗ No worker nodes found in cluster"
-    exit 1
+# Determine which node was configured
+NODE_NAME="node01"
+if ! kubectl get node $NODE_NAME &>/dev/null; then
+    NODE_NAME=$(kubectl get nodes --selector='!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
 fi
 
-echo "Resetting Docker configuration on $WORKER_NODE..."
+if [ -z "$NODE_NAME" ]; then
+    echo "⚠️  No worker nodes found in cluster"
+    exit 0
+fi
 
-ssh "$WORKER_NODE" << 'REMOTE_SCRIPT'
+echo "Cleaning up Docker configuration on $NODE_NAME..."
+
+# Create cleanup script
+cat > /tmp/docker-cleanup.sh << 'EOFSCRIPT'
+#!/bin/bash
+
 # Remove developer user if exists
 if id developer &>/dev/null; then
-    sudo userdel -r developer 2>/dev/null || true
-    echo "✓ Removed user 'developer'"
+    userdel -r developer 2>/dev/null || true
+    echo "  ✓ Removed user 'developer'"
 fi
 
-# Restore original daemon.json if backup exists
-if [ -f /etc/docker/daemon.json.backup ]; then
-    sudo mv /etc/docker/daemon.json.backup /etc/docker/daemon.json
-    echo "✓ Restored original daemon.json"
-else
-    # Default to empty config
-    echo '{}' | sudo tee /etc/docker/daemon.json > /dev/null
-    echo "✓ Reset daemon.json to default"
+# Remove docker group if it was created and is empty
+if getent group docker &>/dev/null; then
+    DOCKER_GROUP_MEMBERS=$(getent group docker | cut -d: -f4)
+    if [ -z "$DOCKER_GROUP_MEMBERS" ]; then
+        groupdel docker 2>/dev/null || true
+        echo "  ✓ Removed docker group"
+    fi
 fi
 
-# Restart docker
-sudo systemctl restart docker
-echo "✓ Docker restarted"
-REMOTE_SCRIPT
+# Clean up daemon.json
+if [ -f /etc/docker/daemon.json ]; then
+    rm -f /etc/docker/daemon.json
+    echo "  ✓ Removed daemon.json"
+fi
+
+# Restart docker if it's running
+if systemctl is-active docker &>/dev/null; then
+    systemctl restart docker 2>/dev/null || true
+    echo "  ✓ Docker restarted"
+fi
+
+echo "✓ Cleanup complete on $(hostname)"
+EOFSCRIPT
+
+chmod +x /tmp/docker-cleanup.sh
+
+# Execute cleanup on the node
+ssh $NODE_NAME 'bash -s' < /tmp/docker-cleanup.sh 2>/dev/null || {
+    echo "⚠️  Could not SSH to $NODE_NAME directly."
+    echo "Please run these commands manually on $NODE_NAME:"
+    echo ""
+    cat /tmp/docker-cleanup.sh
+}
+
+rm -f /tmp/docker-cleanup.sh
 
 echo ""
-echo "Question 06 reset complete!"
+echo "✓ Question 06 reset complete!"
