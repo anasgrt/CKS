@@ -109,6 +109,13 @@ kubectl get nodes <worker-node> -o jsonpath='{.status.nodeInfo.kubeletVersion}' 
 # SSH to worker node
 ssh <worker-node>
 
+# Update apt and check the kubeadm package
+sudo apt update
+sudo apt-cache madison kubeadm
+
+# Check the current kubeadm package afterwards
+sudo dpkg -l | grep kubeadm
+
 # Upgrade kubeadm
 sudo apt-mark unhold kubeadm && \
 sudo apt-get update && sudo apt-get install -y kubeadm='1.34.1-1.1' && \
@@ -118,7 +125,7 @@ sudo apt-mark hold kubeadm
 sudo kubeadm upgrade node
 
 # From controlplane (new terminal) - drain the node
-kubectl drain <worker-node> --ignore-daemonsets
+kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data --force
 
 # Back on worker node - upgrade kubelet and kubectl
 sudo apt-mark unhold kubelet kubectl && \
@@ -157,12 +164,15 @@ A TLS secret named `tls-secret` exists in namespace `secure-app`. A service name
 ### Answer
 
 ```bash
+# Check the ingress-nginx controller is installed and running
+k -n ingress-nginx get pods
+
 # Generate the Ingress manifest using kubectl
-kubectl create ingress secure-ingress \
+kubectl -n secure-app create ingress secure-ingress \
+    --class=nginx \
     --rule="secure.example.com/*=secure-service:80,tls=tls-secret" \
     --annotation="nginx.ingress.kubernetes.io/ssl-redirect=true" \
-    -n secure-app \
-    --dry-run=client -o yaml > /opt/course/03/ingress.yaml
+    --dry-run=client -o yaml | tee /opt/course/03/ingress.yaml
 
 # Apply it
 kubectl apply -f /opt/course/03/ingress.yaml
@@ -179,6 +189,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
+  ingressClassName: nginx
   tls:
   - hosts:
     - secure.example.com

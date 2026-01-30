@@ -25,7 +25,17 @@ echo "STEP 2: Create the Ingress manifest"
 echo "────────────────────────────────────"
 echo ""
 cat << 'EOF'
-# Create the Ingress YAML file
+# Check the ingress-nginx controller is installed and running
+k -n ingress-nginx get pods
+
+# Using kubectl create ingress (quick method)
+kubectl -n secure-app create ingress secure-ingress \
+    --class=nginx \
+    --rule="secure.example.com/*=secure-service:80,tls=tls-secret" \
+    --annotation="nginx.ingress.kubernetes.io/ssl-redirect=true" \
+    --dry-run=client -o yaml | tee /opt/course/03/ingress.yaml
+
+# Or manually create the YAML file
 cat << 'INGRESS' > /opt/course/03/ingress.yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
