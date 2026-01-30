@@ -106,7 +106,7 @@ echo "ls -la /var/run/docker.sock | sudo tee /opt/course/06/socket-before.txt"
 echo "sudo gpasswd -d developer docker"
 echo 'echo '"'"'{"group": "root"}'"'"' | sudo tee /etc/docker/daemon.json'
 echo "sudo cp /etc/docker/daemon.json /opt/course/06/daemon.json"
-echo "sudo systemctl restart docker"
+echo "sudo systemctl restart docker.service"
 echo "ls -la /var/run/docker.sock | sudo tee /opt/course/06/socket-after.txt"
 echo ""
 
