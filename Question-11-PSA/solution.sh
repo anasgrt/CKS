@@ -22,10 +22,12 @@ cat << 'EOF'
 kubectl label --dry-run=server --overwrite ns team-blue \
     pod-security.kubernetes.io/enforce=restricted 2>&1 | tee /opt/course/11/violations.txt
 
-# The output will show warnings like:
+# You'll see warnings for pods that violate the restricted policy
+# Kubernetes may group pods with similar violations together
+# Example output:
 # Warning: existing pods in namespace "team-blue" violate the new PodSecurity enforce level "restricted:latest"
-# Warning: escalation-pod (and 1 other pod): allowPrivilegeEscalation != false, ...
-# Warning: hostnetwork-pod: host namespaces, allowPrivilegeEscalation != false, ...
+# Warning: root-pod: allowPrivilegeEscalation != false, unrestricted capabilities, runAsNonRoot != true, seccompProfile
+# Note: Other non-compliant pods (hostnetwork-pod, escalation-pod) may also appear or be grouped
 EOF
 
 echo ""
@@ -54,6 +56,11 @@ echo "────────────────────────�
 echo ""
 cat << 'EOF'
 # Based on the warnings from Step 2, delete the non-compliant pods:
+# First, check what pods exist in the namespace:
+kubectl get pods -n team-blue
+
+# Delete the pods that violate the restricted policy
+# (Kubernetes groups similar violations, so check all pods, not just those in warnings)
 
 # Delete hostnetwork-pod (uses hostNetwork: true - violates restricted)
 kubectl delete pod hostnetwork-pod -n team-blue
