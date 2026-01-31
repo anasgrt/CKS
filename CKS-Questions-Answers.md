@@ -219,29 +219,52 @@ kubectl apply -f /opt/course/03/ingress.yaml
 
 ### Question
 
-Generate an SBOM for the container image `nginx:1.25-alpine@sha256:721fa00bc549df26b3e67cc558ff176112d4ba69847537766f3c28e171d180e7`
+Analyze the software components inside a container image for supply chain security purposes using multiple SBOM tools.
+
+**Image:** `nginx:1.25-alpine@sha256:721fa00bc549df26b3e67cc558ff176112d4ba69847537766f3c28e171d180e7`
 
 **Task:**
-1. Save SBOM to: `/opt/course/04/sbom.spdx`
-2. Query for SSL packages, save to: `/opt/course/04/ssl-packages.txt`
-3. Find `libcrypto3` version, save to: `/opt/course/04/libcrypto-version.txt`
+1. Use `bom` to generate an SBOM in SPDX format: `/opt/course/04/sbom.spdx`
+2. Use `trivy` to generate an SBOM in SPDX-JSON format: `/opt/course/04/sbom.spdx.json`
+3. Use `trivy` to scan the SBOM for vulnerabilities: `/opt/course/04/sbom-vulns.json`
+4. Query for SSL packages, save to: `/opt/course/04/ssl-packages.txt`
+5. Find `libcrypto3` version, save to: `/opt/course/04/libcrypto-version.txt`
 
 ### Answer
 
 ```bash
 mkdir -p /opt/course/04
 
-# Generate SBOM
+# 1. Generate SBOM with bom (SPDX format)
 bom generate -o /opt/course/04/sbom.spdx --image nginx:1.25-alpine@sha256:721fa00bc549df26b3e67cc558ff176112d4ba69847537766f3c28e171d180e7
 
-# Query for SSL packages
+# 2. Generate SBOM with trivy (SPDX-JSON format)
+trivy image --format spdx-json --output /opt/course/04/sbom.spdx.json nginx:1.25-alpine@sha256:721fa00bc549df26b3e67cc558ff176112d4ba69847537766f3c28e171d180e7
+
+# 3. Scan SBOM for vulnerabilities
+trivy sbom --format json /opt/course/04/sbom.spdx.json > /opt/course/04/sbom-vulns.json
+
+# 4. Query for SSL packages
 # ⚠️ IMPORTANT: The --fields argument MUST be quoted: --fields 'name,version'
 #    Without quotes, bash interprets the comma as a command separator!
 bom document query /opt/course/04/sbom.spdx 'name:ssl' --fields 'name,version' > /opt/course/04/ssl-packages.txt
 bom document query /opt/course/04/sbom.spdx 'name:openssl' --fields 'name,version' >> /opt/course/04/ssl-packages.txt
 
-# Get libcrypto3 version
+# 5. Get libcrypto3 version
 bom document query /opt/course/04/sbom.spdx 'name:libcrypto3' --fields 'name,version' > /opt/course/04/libcrypto-version.txt
+```
+
+**Key Trivy SBOM Commands:**
+```bash
+# Generate SBOM in different formats
+trivy image --format spdx-json --output <path> <image>   # SPDX-JSON
+trivy image --format cyclonedx --output <path> <image>   # CycloneDX
+trivy image --format spdx --output <path> <image>        # SPDX tag-value
+
+# Scan existing SBOM for vulnerabilities
+trivy sbom --format json <sbom-file>                     # JSON output
+trivy sbom --format table <sbom-file>                    # Table output
+trivy sbom --severity HIGH,CRITICAL <sbom-file>          # Filter by severity
 ```
 
 ---

@@ -4,20 +4,26 @@ Difficulty: Easy
 
 Context:
 You need to analyze the software components inside a container image
-for supply chain security purposes.
+for supply chain security purposes using multiple SBOM tools.
 
 Task:
-1. Use the `bom` tool to generate an SBOM for the container image:
+Use the following container image for all tasks:
 
    nginx:1.25-alpine@sha256:721fa00bc549df26b3e67cc558ff176112d4ba69847537766f3c28e171d180e7
 
    (This is the linux/amd64 variant)
 
+1. Use the `bom` tool to generate an SBOM in SPDX format:
    Save the SBOM to: /opt/course/04/sbom.spdx
 
-2. Query the generated SBOM to find all packages that contain "ssl" or "openssl"
+2. Use `trivy` to generate an SBOM in SPDX-JSON format:
+   Save the SBOM to: /opt/course/04/sbom.spdx.json
 
+3. Use `trivy` to scan the generated SPDX-JSON SBOM for vulnerabilities:
+   Save the scan results (JSON format) to: /opt/course/04/sbom-vulns.json
+
+4. Query the bom-generated SBOM to find all packages that contain "ssl" or "openssl"
    Save the query results to: /opt/course/04/ssl-packages.txt
 
-3. Verify if the package "libcrypto3" exists in the SBOM and save its version
+5. Verify if the package "libcrypto3" exists in the SBOM and save its version
    to: /opt/course/04/libcrypto-version.txt

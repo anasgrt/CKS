@@ -1,5 +1,5 @@
 #!/bin/bash
-# Setup for Question 04 - SBOM with SPDX Format
+# Setup for Question 04 - SBOM with SPDX Format (bom + trivy)
 
 set -e
 
@@ -36,6 +36,16 @@ install_bom() {
     echo "✓ bom installed successfully"
 }
 
+# Install trivy if not available
+install_trivy() {
+    echo "Installing trivy..."
+
+    # Install trivy using official installer script
+    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+    echo "✓ trivy installed successfully"
+}
+
 # Check if bom tool is available, install if not
 if command -v bom &> /dev/null; then
     echo "✓ bom tool is already available"
@@ -43,11 +53,24 @@ else
     install_bom
 fi
 
+# Check if trivy is available, install if not
+if command -v trivy &> /dev/null; then
+    echo "✓ trivy is already available"
+else
+    install_trivy
+fi
+
 echo ""
 echo "✓ Environment ready!"
 echo ""
 echo "Target image: nginx:1.25-alpine@sha256:721fa00bc549df26b3e67cc558ff176112d4ba69847537766f3c28e171d180e7"
-echo "Output file: /opt/course/04/sbom.spdx"
+echo ""
+echo "Output files:"
+echo "  - /opt/course/04/sbom.spdx        (bom - SPDX format)"
+echo "  - /opt/course/04/sbom.spdx.json   (trivy - SPDX-JSON format)"
+echo "  - /opt/course/04/sbom-vulns.json  (trivy sbom scan results)"
+echo "  - /opt/course/04/ssl-packages.txt"
+echo "  - /opt/course/04/libcrypto-version.txt"
 echo ""
 echo "Commands to try:"
 echo "  bom generate -o /opt/course/04/sbom.spdx --image nginx:1.25-alpine@sha256:721fa00bc549df26b3e67cc558ff176112d4ba69847537766f3c28e171d180e7"

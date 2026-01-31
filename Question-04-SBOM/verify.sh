@@ -1,5 +1,5 @@
 #!/bin/bash
-# Verify Question 04 - SBOM Generation, Query, and Verification
+# Verify Question 04 - SBOM Generation with bom and trivy
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -8,12 +8,12 @@ NC='\033[0m'
 
 PASS=true
 
-echo "Checking SBOM Generation, Query, and Package Verification..."
+echo "Checking SBOM Generation, Trivy Scanning, Query, and Package Verification..."
 echo ""
 
-# Part 1: Check if SBOM file exists
-echo "Part 1: SBOM Generation"
-echo "─────────────────────────"
+# Part 1: Check if bom SBOM file exists
+echo "Part 1: SBOM Generation (bom - SPDX format)"
+echo "───────────────────────────────────────────"
 if [ -f "/opt/course/04/sbom.spdx" ]; then
     echo -e "${GREEN}✓ sbom.spdx file exists${NC}"
 
@@ -42,9 +42,65 @@ fi
 
 echo ""
 
-# Part 2: Check if SSL packages file exists
-echo "Part 2: SSL Packages Query"
-echo "─────────────────────────────"
+# Part 2: Check if trivy SBOM file exists (SPDX-JSON)
+echo "Part 2: SBOM Generation (trivy - SPDX-JSON format)"
+echo "──────────────────────────────────────────────────"
+if [ -f "/opt/course/04/sbom.spdx.json" ]; then
+    echo -e "${GREEN}✓ sbom.spdx.json file exists${NC}"
+
+    if [ -s "/opt/course/04/sbom.spdx.json" ]; then
+        echo -e "${GREEN}✓ sbom.spdx.json is not empty${NC}"
+    else
+        echo -e "${RED}✗ sbom.spdx.json is empty${NC}"
+        PASS=false
+    fi
+
+    if grep -qi "spdxVersion\|SPDX" /opt/course/04/sbom.spdx.json 2>/dev/null; then
+        echo -e "${GREEN}✓ File appears to be in SPDX-JSON format${NC}"
+    else
+        echo -e "${YELLOW}⚠ Could not verify SPDX-JSON format${NC}"
+    fi
+
+    if grep -qi "nginx" /opt/course/04/sbom.spdx.json 2>/dev/null; then
+        echo -e "${GREEN}✓ SBOM contains nginx references${NC}"
+    else
+        echo -e "${YELLOW}⚠ Could not find nginx references in SBOM${NC}"
+    fi
+else
+    echo -e "${RED}✗ sbom.spdx.json not found at /opt/course/04/sbom.spdx.json${NC}"
+    PASS=false
+fi
+
+echo ""
+
+# Part 3: Check if trivy sbom scan results exist
+echo "Part 3: SBOM Vulnerability Scan (trivy sbom)"
+echo "────────────────────────────────────────────"
+if [ -f "/opt/course/04/sbom-vulns.json" ]; then
+    echo -e "${GREEN}✓ sbom-vulns.json file exists${NC}"
+
+    if [ -s "/opt/course/04/sbom-vulns.json" ]; then
+        echo -e "${GREEN}✓ sbom-vulns.json is not empty${NC}"
+    else
+        echo -e "${RED}✗ sbom-vulns.json is empty${NC}"
+        PASS=false
+    fi
+
+    if grep -qi "Results\|Vulnerabilities\|SchemaVersion" /opt/course/04/sbom-vulns.json 2>/dev/null; then
+        echo -e "${GREEN}✓ File appears to be a valid trivy scan result${NC}"
+    else
+        echo -e "${YELLOW}⚠ Could not verify trivy scan format${NC}"
+    fi
+else
+    echo -e "${RED}✗ sbom-vulns.json not found at /opt/course/04/sbom-vulns.json${NC}"
+    PASS=false
+fi
+
+echo ""
+
+# Part 4: Check if SSL packages file exists
+echo "Part 4: SSL Packages Query"
+echo "──────────────────────────"
 if [ -f "/opt/course/04/ssl-packages.txt" ]; then
     echo -e "${GREEN}✓ ssl-packages.txt file exists${NC}"
 
@@ -67,9 +123,9 @@ fi
 
 echo ""
 
-# Part 3: Check if libcrypto version file exists
-echo "Part 3: Package Version Verification"
-echo "─────────────────────────────────────"
+# Part 5: Check if libcrypto version file exists
+echo "Part 5: Package Version Verification"
+echo "────────────────────────────────────"
 if [ -f "/opt/course/04/libcrypto-version.txt" ]; then
     echo -e "${GREEN}✓ libcrypto-version.txt file exists${NC}"
 
@@ -104,3 +160,4 @@ else
     echo -e "${RED}Some checks failed.${NC}"
     exit 1
 fi
+
