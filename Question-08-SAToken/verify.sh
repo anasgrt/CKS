@@ -46,8 +46,8 @@ else
 fi
 
 # Check for serviceAccountToken in projected volume
-SA_TOKEN=$(kubectl get deployment stats-monitor -n monitoring -o json 2>/dev/null | grep -c "serviceAccountToken" || echo "0")
-if [ "$SA_TOKEN" -ge 1 ]; then
+SA_TOKEN_CHECK=$(kubectl get deployment stats-monitor -n monitoring -o jsonpath='{.spec.template.spec.volumes[?(@.name=="token")].projected.sources[*].serviceAccountToken}' 2>/dev/null || echo "")
+if [ -n "$SA_TOKEN_CHECK" ]; then
     echo -e "${GREEN}✓ Projected volume has serviceAccountToken source${NC}"
 else
     echo -e "${RED}✗ Projected volume should have serviceAccountToken source${NC}"
@@ -55,7 +55,7 @@ else
 fi
 
 # Check expirationSeconds is set
-EXPIRATION=$(kubectl get deployment stats-monitor -n monitoring -o jsonpath='{.spec.template.spec.volumes[?(@.name=="token")].projected.sources[0].serviceAccountToken.expirationSeconds}' 2>/dev/null || echo "")
+EXPIRATION=$(kubectl get deployment stats-monitor -n monitoring -o json 2>/dev/null | jq -r '.spec.template.spec.volumes[] | select(.name=="token") | .projected.sources[].serviceAccountToken.expirationSeconds // ""' 2>/dev/null | head -1)
 if [ "$EXPIRATION" == "3600" ]; then
     echo -e "${GREEN}✓ ServiceAccountToken has expirationSeconds: 3600${NC}"
 elif [ -n "$EXPIRATION" ]; then
@@ -66,7 +66,7 @@ else
 fi
 
 # Check audience is set
-AUDIENCE=$(kubectl get deployment stats-monitor -n monitoring -o jsonpath='{.spec.template.spec.volumes[?(@.name=="token")].projected.sources[0].serviceAccountToken.audience}' 2>/dev/null || echo "")
+AUDIENCE=$(kubectl get deployment stats-monitor -n monitoring -o json 2>/dev/null | jq -r '.spec.template.spec.volumes[] | select(.name=="token") | .projected.sources[].serviceAccountToken.audience // ""' 2>/dev/null | head -1)
 if [ -n "$AUDIENCE" ]; then
     echo -e "${GREEN}✓ ServiceAccountToken has audience configured: $AUDIENCE${NC}"
 else
@@ -197,7 +197,9 @@ else
     echo "    - serviceAccountToken with:"
     echo "      * expirationSeconds: 3600"
     echo "      * audience: https://kubernetes.default.svc.cluster.local (or cluster-specific)"
-    echo "    - Volume mount at /var/run/secrets/kubernetes.io/serviceaccount/token"
+    echo "      * path: token (filename inside mounted directory)"
+    echo "    - Volume mount at /var/run/secrets/kubernetes.io/serviceaccount (directory)"
+    echo "    - Token accessible at: /var/run/secrets/kubernetes.io/serviceaccount/token"
     echo "    - Mount must be read-only: true"
     echo ""
     echo "To discover audience:"
