@@ -8,6 +8,11 @@ echo "Setting up Question 11 - Pod Security Admission..."
 # Create namespace
 kubectl create namespace team-blue --dry-run=client -o yaml | kubectl apply -f -
 
+# Wait for default ServiceAccount to be created
+echo "Waiting for default ServiceAccount..."
+kubectl wait --for=jsonpath='{.metadata.name}'=default serviceaccount/default -n team-blue --timeout=30s || true
+sleep 2
+
 # Create compliant pod (restricted level)
 cat << 'EOF' | kubectl apply -f -
 apiVersion: v1
