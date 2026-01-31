@@ -2,130 +2,134 @@
 # Solution for Question 12 - Dockerfile and Deployment Security
 
 echo "═══════════════════════════════════════════════════════════════════"
-echo "Solution: Dockerfile and Deployment Security Best Practices"
+echo "Solution: Dockerfile and Deployment Security - Fix 2 Issues Each"
 echo "═══════════════════════════════════════════════════════════════════"
 echo ""
 
-echo "ISSUES IN ORIGINAL DOCKERFILE:"
-echo "───────────────────────────────"
+echo "PART 1: DOCKERFILE ISSUES"
+echo "═════════════════════════"
+echo ""
+echo "Original Dockerfile at /opt/course/12/Dockerfile:"
 echo ""
 cat << 'EOF'
-1. FROM nginx:latest  <- Using :latest tag (should use specific version)
-2. ADD app.tar.gz     <- ADD is OK for archives that need extraction
-3. ADD config.txt     <- Should use COPY for regular files
-4. No USER instruction <- Runs as root by default
+FROM ubuntu:latest          ← ISSUE 1: Using 'latest' tag (not specific)
+RUN apt-get update && apt-get install -y lsof wget nginx
+ENV ENVIRONMENT=testing
+COPY entrypoint.sh /
+RUN useradd appuser
+USER root                   ← ISSUE 2: Running as root user
+ENTRYPOINT ["/entrypoint.sh"]
 EOF
 
 echo ""
-echo "FIXED DOCKERFILE:"
-echo "─────────────────"
+echo "─────────────────────────────────────────────────────────────────"
+echo "FIX for Dockerfile (modify 2 lines):"
+echo "─────────────────────────────────────────────────────────────────"
 echo ""
 cat << 'EOF'
-cat << 'DOCKERFILE' > /opt/course/12/Dockerfile-fixed
-FROM nginx:1.25.3-alpine
+Line 1: FROM ubuntu:latest  →  FROM ubuntu:16.04
+        Reason: Never use 'latest' tag; use specific version for reproducibility
 
-# Use COPY for local files that don't need extraction
-COPY config.txt /etc/config.txt
-COPY index.html /usr/share/nginx/html/
-
-# ADD is acceptable for archives that need extraction
-ADD app.tar.gz /app
-
-# Create non-root user and set ownership
-RUN addgroup -g 1001 appgroup && \
-    adduser -u 1001 -G appgroup -D appuser && \
-    chown -R appuser:appgroup /usr/share/nginx/html /var/cache/nginx /var/run
-
-# Run as non-root user
-USER appuser
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
-DOCKERFILE
+Line 6: USER root  →  USER nobody
+        Reason: Never run as root; use unprivileged user (nobody = UID 65535)
 EOF
 
 echo ""
-echo "ISSUES IN ORIGINAL DEPLOYMENT:"
-echo "──────────────────────────────"
+echo "Commands to fix the Dockerfile:"
 echo ""
 cat << 'EOF'
-1. image: nginx:latest      <- Using :latest tag
-2. privileged: true         <- Container has full host access
-3. allowPrivilegeEscalation: true <- Can gain more privileges
-4. No runAsNonRoot          <- Can run as root
-5. No readOnlyRootFilesystem <- Filesystem is writable
+# Fix Line 1: Change ubuntu:latest to ubuntu:16.04
+sed -i 's/ubuntu:latest/ubuntu:16.04/' /opt/course/12/Dockerfile
+
+# Fix Line 6: Change USER root to USER nobody
+sed -i 's/USER root/USER nobody/' /opt/course/12/Dockerfile
+
+# Verify the changes
+cat /opt/course/12/Dockerfile
 EOF
 
 echo ""
-echo "FIXED DEPLOYMENT:"
-echo "─────────────────"
+echo ""
+echo "PART 2: DEPLOYMENT ISSUES"
+echo "═════════════════════════"
+echo ""
+echo "Original Deployment at /opt/course/12/deployment.yaml:"
 echo ""
 cat << 'EOF'
-cat << 'DEPLOYMENT' > /opt/course/12/deployment-fixed.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: web-app
-  namespace: default
+  name: kafka
+  namespace: team-blue
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: web-app
+      app: kafka
   template:
     metadata:
       labels:
-        app: web-app
+        app: kafka
     spec:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1001
-        fsGroup: 1001
       containers:
-      - name: nginx
-        image: nginx:1.25.3-alpine
-        ports:
-        - containerPort: 80
+      - name: kafka
+        image: bitnami/kafka:3.4
         securityContext:
-          privileged: false
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
           capabilities:
-            drop:
-            - ALL
-        volumeMounts:
-        - name: tmp
-          mountPath: /tmp
-        - name: cache
-          mountPath: /var/cache/nginx
-        - name: run
-          mountPath: /var/run
-      volumes:
-      - name: tmp
-        emptyDir: {}
-      - name: cache
-        emptyDir: {}
-      - name: run
-        emptyDir: {}
-DEPLOYMENT
+            add: ['NET_ADMIN']
+            drop: ['all']
+          privileged: true              ← ISSUE 1: Container runs in privileged mode
+          readOnlyRootFilesystem: false ← ISSUE 2: Filesystem is writable
+          runAsUser: 65535
+        ports:
+        - containerPort: 9092
+EOF
+
+echo ""
+echo "─────────────────────────────────────────────────────────────────"
+echo "FIX for Deployment (modify 2 fields):"
+echo "─────────────────────────────────────────────────────────────────"
+echo ""
+cat << 'EOF'
+Field 1: privileged: true  →  privileged: false
+         Reason: Containers should never run in privileged mode (full host access)
+
+Field 2: readOnlyRootFilesystem: false  →  readOnlyRootFilesystem: true
+         Reason: Container filesystem should be immutable (security best practice)
+EOF
+
+echo ""
+echo "Commands to fix the Deployment:"
+echo ""
+cat << 'EOF'
+# Fix privileged: true → false
+sed -i 's/privileged: true/privileged: false/' /opt/course/12/deployment.yaml
+
+# Fix readOnlyRootFilesystem: false → true
+sed -i 's/readOnlyRootFilesystem: false/readOnlyRootFilesystem: true/' /opt/course/12/deployment.yaml
+
+# Verify the changes
+cat /opt/course/12/deployment.yaml
+
+# Apply the fixed deployment
+kubectl apply -f /opt/course/12/deployment.yaml
 EOF
 
 echo ""
 echo "═══════════════════════════════════════════════════════════════════"
-echo "KEY SECURITY BEST PRACTICES:"
+echo "SUMMARY OF CHANGES:"
 echo "═══════════════════════════════════════════════════════════════════"
 echo ""
-echo "DOCKERFILE:"
-echo "  - Use specific image tags (not :latest)"
-echo "  - Use COPY instead of ADD for local files"
-echo "  - Run as non-root user (USER instruction)"
-echo "  - Minimize layers and packages"
+echo "DOCKERFILE (2 changes):"
+echo "  ✓ Line 1: FROM ubuntu:latest → FROM ubuntu:16.04"
+echo "  ✓ Line 6: USER root → USER nobody"
 echo ""
-echo "DEPLOYMENT:"
-echo "  - privileged: false"
-echo "  - allowPrivilegeEscalation: false"
-echo "  - runAsNonRoot: true"
-echo "  - readOnlyRootFilesystem: true"
-echo "  - Drop ALL capabilities"
-echo "  - Use emptyDir for writable directories"
+echo "DEPLOYMENT (2 changes):"
+echo "  ✓ privileged: true → privileged: false"
+echo "  ✓ readOnlyRootFilesystem: false → readOnlyRootFilesystem: true"
+echo ""
+echo "KEY EXAM TIPS:"
+echo "  - Read constraints carefully (fix EXACTLY 2 issues per file)"
+echo "  - Only MODIFY existing settings (don't add new ones)"
+echo "  - Use 'nobody' (UID 65535) when unprivileged user is needed"
+echo "  - Edit files in place (don't create -fixed versions)"

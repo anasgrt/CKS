@@ -3,23 +3,24 @@ Domain: Supply Chain Security (20%)
 Difficulty: Medium
 
 Context:
-A Dockerfile and a Kubernetes Deployment manifest are provided.
-Both files contain security issues that do not follow best practices.
+A Dockerfile and a Kubernetes Deployment manifest are provided. Both files contain security issues that do not follow best practices.
+
+You can find the files at:
+- Dockerfile: /opt/course/12/Dockerfile
+- Deployment manifest: /opt/course/12/deployment.yaml
 
 Task:
-Analyze and fix the security issues in both files.
+1. Analyze and edit the given Dockerfile (based on the ubuntu:16.04 image) fixing two instructions present in the file being prominent security/best-practice issues.
 
-1. Analyze the Dockerfile at /opt/course/12/Dockerfile and fix:
-   - Running as root user (add USER instruction with non-root user)
-   - Using `latest` tag for base image (use specific version)
-   - Using `ADD` instead of `COPY` for local files
+2. Analyze and edit the given manifest file fixing two fields present in the file being prominent security/best-practice issues.
 
-2. Analyze the Deployment manifest at /opt/course/12/deployment.yaml and fix:
-   - Container running as privileged (set privileged: false)
-   - Container can escalate privileges (set allowPrivilegeEscalation: false)
-   - Container not running as non-root (set runAsNonRoot: true)
-   - Root filesystem is writable (set readOnlyRootFilesystem: true)
+3. Don't add or remove configuration settings; only modify the existing configuration settings.
 
-Save the fixed files to:
-- /opt/course/12/Dockerfile-fixed
-- /opt/course/12/deployment-fixed.yaml
+4. Should you need an unprivileged user for any of the tasks, use user nobody with user id 65535.
+
+Important Constraints:
+- Fix EXACTLY 2 issues in the Dockerfile
+- Fix EXACTLY 2 issues in the deployment.yaml
+- ONLY modify existing settings - do NOT add new fields
+- Edit the files in place - do NOT create new files with "-fixed" suffix
+

@@ -8,92 +8,142 @@ NC='\033[0m'
 
 PASS=true
 
-echo "Checking Dockerfile and Deployment Security..."
+echo "Checking Dockerfile and Deployment Security fixes..."
 echo ""
 
-# Check Dockerfile-fixed
-echo "Checking fixed Dockerfile..."
-if [ -f "/opt/course/12/Dockerfile-fixed" ]; then
-    echo -e "${GREEN}✓ Dockerfile-fixed exists${NC}"
+# ============================================================================
+# VERIFY DOCKERFILE (2 changes expected)
+# ============================================================================
+echo "═══════════════════════════════════════════════════════════════"
+echo "PART 1: Checking Dockerfile fixes"
+echo "═══════════════════════════════════════════════════════════════"
+echo ""
 
-    # Check for specific version (not :latest)
-    if grep -q "nginx:latest" /opt/course/12/Dockerfile-fixed; then
-        echo -e "${RED}✗ Should not use :latest tag${NC}"
+if [ -f "/opt/course/12/Dockerfile" ]; then
+    echo -e "${GREEN}✓ Dockerfile exists at /opt/course/12/Dockerfile${NC}"
+    echo ""
+
+    # Check 1: FROM instruction should use ubuntu:16.04 (not :latest)
+    FROM_LINE=$(grep "^FROM" /opt/course/12/Dockerfile)
+    if echo "$FROM_LINE" | grep -q "ubuntu:16.04"; then
+        echo -e "${GREEN}✓ FROM ubuntu:16.04 (using specific version)${NC}"
+    elif echo "$FROM_LINE" | grep -q "ubuntu:latest"; then
+        echo -e "${RED}✗ Still using ubuntu:latest (should be ubuntu:16.04)${NC}"
         PASS=false
     else
-        echo -e "${GREEN}✓ Not using :latest tag${NC}"
+        echo -e "${YELLOW}⚠ FROM instruction: $FROM_LINE${NC}"
+        echo -e "${YELLOW}  Expected: FROM ubuntu:16.04${NC}"
     fi
 
-    # Check for USER instruction
-    if grep -qi "^USER" /opt/course/12/Dockerfile-fixed; then
-        echo -e "${GREEN}✓ Has USER instruction${NC}"
-    else
-        echo -e "${RED}✗ Should have USER instruction for non-root${NC}"
+    # Check 2: USER instruction should use nobody (not root)
+    USER_LINE=$(grep "^USER" /opt/course/12/Dockerfile)
+    if echo "$USER_LINE" | grep -q "USER nobody"; then
+        echo -e "${GREEN}✓ USER nobody (running as unprivileged user)${NC}"
+    elif echo "$USER_LINE" | grep -q "USER root"; then
+        echo -e "${RED}✗ Still using USER root (should be USER nobody)${NC}"
         PASS=false
+    else
+        echo -e "${YELLOW}⚠ USER instruction: $USER_LINE${NC}"
+        echo -e "${YELLOW}  Expected: USER nobody${NC}"
     fi
 
-    # Check ADD is replaced with COPY for local files
-    ADD_COUNT=$(grep -c "^ADD" /opt/course/12/Dockerfile-fixed 2>/dev/null || echo "0")
-    if [ "$ADD_COUNT" -le 1 ]; then  # Allow one ADD for .tar.gz
-        echo -e "${GREEN}✓ Using COPY instead of ADD for local files${NC}"
-    else
-        echo -e "${YELLOW}⚠ Consider using COPY instead of ADD for local files${NC}"
-    fi
+    echo ""
+    echo "Current Dockerfile:"
+    echo "-------------------"
+    cat /opt/course/12/Dockerfile | grep -E "^FROM|^USER"
+    echo ""
 else
-    echo -e "${RED}✗ Dockerfile-fixed not found at /opt/course/12/Dockerfile-fixed${NC}"
+    echo -e "${RED}✗ Dockerfile not found at /opt/course/12/Dockerfile${NC}"
     PASS=false
 fi
 
-# Check deployment-fixed.yaml
+# ============================================================================
+# VERIFY DEPLOYMENT (2 changes expected)
+# ============================================================================
 echo ""
-echo "Checking fixed Deployment..."
-if [ -f "/opt/course/12/deployment-fixed.yaml" ]; then
-    echo -e "${GREEN}✓ deployment-fixed.yaml exists${NC}"
+echo "═══════════════════════════════════════════════════════════════"
+echo "PART 2: Checking Deployment fixes"
+echo "═══════════════════════════════════════════════════════════════"
+echo ""
 
-    # Check privileged: false
-    if grep -q "privileged: false" /opt/course/12/deployment-fixed.yaml; then
-        echo -e "${GREEN}✓ Has privileged: false${NC}"
-    else
-        echo -e "${RED}✗ Should have privileged: false${NC}"
+if [ -f "/opt/course/12/deployment.yaml" ]; then
+    echo -e "${GREEN}✓ deployment.yaml exists at /opt/course/12/deployment.yaml${NC}"
+    echo ""
+
+    # Check 1: privileged should be false
+    if grep -q "privileged: false" /opt/course/12/deployment.yaml; then
+        echo -e "${GREEN}✓ privileged: false (not running in privileged mode)${NC}"
+    elif grep -q "privileged: true" /opt/course/12/deployment.yaml; then
+        echo -e "${RED}✗ Still has privileged: true (should be false)${NC}"
         PASS=false
+    else
+        echo -e "${YELLOW}⚠ Could not find 'privileged' field${NC}"
     fi
 
-    # Check allowPrivilegeEscalation: false
-    if grep -q "allowPrivilegeEscalation: false" /opt/course/12/deployment-fixed.yaml; then
-        echo -e "${GREEN}✓ Has allowPrivilegeEscalation: false${NC}"
-    else
-        echo -e "${RED}✗ Should have allowPrivilegeEscalation: false${NC}"
+    # Check 2: readOnlyRootFilesystem should be true
+    if grep -q "readOnlyRootFilesystem: true" /opt/course/12/deployment.yaml; then
+        echo -e "${GREEN}✓ readOnlyRootFilesystem: true (immutable filesystem)${NC}"
+    elif grep -q "readOnlyRootFilesystem: false" /opt/course/12/deployment.yaml; then
+        echo -e "${RED}✗ Still has readOnlyRootFilesystem: false (should be true)${NC}"
         PASS=false
+    else
+        echo -e "${YELLOW}⚠ Could not find 'readOnlyRootFilesystem' field${NC}"
     fi
 
-    # Check runAsNonRoot: true
-    if grep -q "runAsNonRoot: true" /opt/course/12/deployment-fixed.yaml; then
-        echo -e "${GREEN}✓ Has runAsNonRoot: true${NC}"
-    else
-        echo -e "${RED}✗ Should have runAsNonRoot: true${NC}"
-        PASS=false
-    fi
-
-    # Check readOnlyRootFilesystem: true
-    if grep -q "readOnlyRootFilesystem: true" /opt/course/12/deployment-fixed.yaml; then
-        echo -e "${GREEN}✓ Has readOnlyRootFilesystem: true${NC}"
-    else
-        echo -e "${YELLOW}⚠ Consider adding readOnlyRootFilesystem: true${NC}"
-    fi
+    echo ""
+    echo "Current securityContext:"
+    echo "------------------------"
+    grep -A8 "securityContext:" /opt/course/12/deployment.yaml | head -10
+    echo ""
 else
-    echo -e "${RED}✗ deployment-fixed.yaml not found at /opt/course/12/deployment-fixed.yaml${NC}"
+    echo -e "${RED}✗ deployment.yaml not found at /opt/course/12/deployment.yaml${NC}"
     PASS=false
 fi
 
+# ============================================================================
+# VERIFY DEPLOYMENT CAN BE APPLIED
+# ============================================================================
 echo ""
-echo "=============================================="
+echo "═══════════════════════════════════════════════════════════════"
+echo "PART 3: Testing deployment application"
+echo "═══════════════════════════════════════════════════════════════"
+echo ""
+
+if kubectl apply -f /opt/course/12/deployment.yaml --dry-run=client &>/dev/null; then
+    echo -e "${GREEN}✓ Deployment manifest is valid (dry-run successful)${NC}"
+else
+    echo -e "${YELLOW}⚠ Deployment manifest may have syntax issues${NC}"
+fi
+
+# ============================================================================
+# SUMMARY
+# ============================================================================
+echo ""
+echo "═══════════════════════════════════════════════════════════════"
 echo "Summary"
-echo "=============================================="
+echo "═══════════════════════════════════════════════════════════════"
+echo ""
 
 if $PASS; then
-    echo -e "${GREEN}All checks passed!${NC}"
+    echo -e "${GREEN}✓ All checks passed!${NC}"
+    echo ""
+    echo "Changes verified:"
+    echo "  Dockerfile:"
+    echo "    ✓ FROM ubuntu:16.04"
+    echo "    ✓ USER nobody"
+    echo "  Deployment:"
+    echo "    ✓ privileged: false"
+    echo "    ✓ readOnlyRootFilesystem: true"
     exit 0
 else
-    echo -e "${RED}Some checks failed.${NC}"
+    echo -e "${RED}✗ Some checks failed${NC}"
+    echo ""
+    echo "Expected changes:"
+    echo "  Dockerfile:"
+    echo "    - FROM ubuntu:latest → FROM ubuntu:16.04"
+    echo "    - USER root → USER nobody"
+    echo "  Deployment:"
+    echo "    - privileged: true → privileged: false"
+    echo "    - readOnlyRootFilesystem: false → readOnlyRootFilesystem: true"
     exit 1
 fi

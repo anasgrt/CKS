@@ -8,60 +8,68 @@ echo "Setting up Question 12 - Dockerfile and Deployment Security..."
 # Create output directory
 mkdir -p /opt/course/12
 
-# Create insecure Dockerfile
+# Create insecure Dockerfile (with issues to fix)
 cat << 'EOF' > /opt/course/12/Dockerfile
-FROM nginx:latest
-
-ADD app.tar.gz /app
-ADD config.txt /etc/config.txt
-COPY index.html /usr/share/nginx/html/
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+FROM ubuntu:latest
+RUN apt-get update && apt-get install -y lsof wget nginx
+ENV ENVIRONMENT=testing
+COPY entrypoint.sh /
+RUN useradd appuser
+USER root
+ENTRYPOINT ["/entrypoint.sh"]
 EOF
 
-# Create insecure deployment
+# Create dummy entrypoint.sh file
+cat << 'EOF' > /opt/course/12/entrypoint.sh
+#!/bin/bash
+echo "Application starting..."
+sleep 3600
+EOF
+chmod +x /opt/course/12/entrypoint.sh
+
+# Create namespace for deployment
+kubectl create namespace team-blue --dry-run=client -o yaml | kubectl apply -f -
+
+# Create insecure deployment (with issues to fix)
 cat << 'EOF' > /opt/course/12/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: web-app
-  namespace: default
+  name: kafka
+  namespace: team-blue
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: web-app
+      app: kafka
   template:
     metadata:
       labels:
-        app: web-app
+        app: kafka
     spec:
       containers:
-      - name: nginx
-        image: nginx:latest
-        ports:
-        - containerPort: 80
+      - name: kafka
+        image: bitnami/kafka:3.4
         securityContext:
+          capabilities:
+            add: ['NET_ADMIN']
+            drop: ['all']
           privileged: true
-          allowPrivilegeEscalation: true
+          readOnlyRootFilesystem: false
+          runAsUser: 65535
+        ports:
+        - containerPort: 9092
 EOF
 
 echo ""
 echo "✓ Environment ready!"
 echo ""
-echo "Files to analyze:"
+echo "Files to analyze and fix:"
 echo "  - /opt/course/12/Dockerfile"
 echo "  - /opt/course/12/deployment.yaml"
 echo ""
-echo "Common Dockerfile security issues:"
-echo "  - Using :latest tag"
-echo "  - Running as root"
-echo "  - Using ADD instead of COPY for local files"
-echo ""
-echo "Common Deployment security issues:"
-echo "  - privileged: true"
-echo "  - allowPrivilegeEscalation: true"
-echo "  - Not setting runAsNonRoot"
-echo "  - Not setting readOnlyRootFilesystem"
+echo "Remember:"
+echo "  - Fix EXACTLY 2 issues per file"
+echo "  - Only MODIFY existing settings (don't add new ones)"
+echo "  - Use 'nobody' user (UID 65535) for Dockerfile"
+echo "  - Edit files in place (don't create -fixed files)"
