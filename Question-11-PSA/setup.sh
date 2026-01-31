@@ -112,9 +112,10 @@ sleep 5
 echo ""
 echo "✓ Environment ready!"
 echo ""
+echo "Context: workload-prod (simulated)"
 echo "Namespace: team-blue"
 echo "Pods created:"
 kubectl get pods -n team-blue
 echo ""
-echo "Use the dry-run command to identify violations:"
-echo "  kubectl label --dry-run=server --overwrite ns team-blue pod-security.kubernetes.io/enforce=restricted"
+echo "Current namespace labels:"
+kubectl get ns team-blue --show-labels

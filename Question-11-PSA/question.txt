@@ -3,21 +3,30 @@ Domain: Minimize Microservice Vulnerabilities (20%)
 Difficulty: Medium
 
 Context:
-A namespace (team-blue) needs to have Pod Security Admission configured with the `restricted`
-level in `enforce` mode. Several pods already exist in this namespace that were created
-before the policy will be enforced, and some may not comply with the `restricted` Pod Security Standard.
+kubectl config use-context workload-prod
+
+A namespace named team-blue has several pods running that were created before
+Pod Security Standards were enforced. You need to configure the namespace to
+enforce the restricted Pod Security Standard and clean up non-compliant pods.
 
 Task:
-1. Use `kubectl label --dry-run=server` to identify pods that violate the Pod Security Standard:
-   - kubectl label --dry-run=server --overwrite ns team-blue pod-security.kubernetes.io/enforce=restricted
+1. Use the dry-run feature to identify pods that violate the restricted
+   Pod Security Standard WITHOUT actually applying the label yet:
 
-2. Review the warnings to identify non-compliant pods
+   kubectl label --dry-run=server --overwrite ns team-blue \
+     pod-security.kubernetes.io/enforce=restricted
 
-3. Delete the pods that do not comply with the `restricted` policy
+2. Review the warnings returned to identify which pods violate the policy
 
-4. The compliant pods should remain running
+3. Apply the restricted enforcement to the namespace
+
+4. Delete the pods that violate the restricted Pod Security Standard
+   (Note: Pods managed by Deployments will fail to recreate due to the policy)
+
+5. The compliant pods should remain running
 
 Save the following:
-- The warning output from dry-run: /opt/course/11/violations.txt
-- Names of deleted pods: /opt/course/11/deleted-pods.txt
-- The kubectl command used: /opt/course/11/command.txt
+- The warning output from the dry-run command: /opt/course/11/violations.txt
+- Names of deleted pods (one per line): /opt/course/11/deleted-pods.txt
+- The kubectl label command used: /opt/course/11/command.txt
+
