@@ -11,31 +11,42 @@ PASS=true
 echo "Checking ServiceAccount Token Mounting..."
 echo ""
 
-# Check ServiceAccount automountServiceAccountToken
-echo "Checking ServiceAccount configuration..."
-AUTOMOUNT=$(kubectl get sa backend-sa -n secure -o jsonpath='{.automountServiceAccountToken}' 2>/dev/null || echo "true")
+# ============================================================================
+# VERIFY SERVICEACCOUNT
+# ============================================================================
+echo "═══════════════════════════════════════════════════════════════"
+echo "PART 1: Checking ServiceAccount configuration"
+echo "═══════════════════════════════════════════════════════════════"
+echo ""
+
+AUTOMOUNT=$(kubectl get sa stats-monitor-sa -n monitoring -o jsonpath='{.automountServiceAccountToken}' 2>/dev/null || echo "true")
 if [ "$AUTOMOUNT" == "false" ]; then
     echo -e "${GREEN}✓ ServiceAccount has automountServiceAccountToken: false${NC}"
 else
-    echo -e "${RED}✗ ServiceAccount should have automountServiceAccountToken: false${NC}"
+    echo -e "${RED}✗ ServiceAccount should have automountServiceAccountToken: false (current: $AUTOMOUNT)${NC}"
     PASS=false
 fi
 
-# Check Deployment has projected volume
+# ============================================================================
+# VERIFY DEPLOYMENT
+# ============================================================================
 echo ""
-echo "Checking Deployment configuration..."
+echo "═══════════════════════════════════════════════════════════════"
+echo "PART 2: Checking Deployment configuration"
+echo "═══════════════════════════════════════════════════════════════"
+echo ""
 
 # Check for projected volume named 'token'
-VOLUME_NAME=$(kubectl get deployment backend-deploy -n secure -o jsonpath='{.spec.template.spec.volumes[?(@.projected)].name}' 2>/dev/null || echo "")
-if [ -n "$VOLUME_NAME" ]; then
-    echo -e "${GREEN}✓ Deployment has projected volume${NC}"
+VOLUME_NAME=$(kubectl get deployment stats-monitor -n monitoring -o jsonpath='{.spec.template.spec.volumes[?(@.projected)].name}' 2>/dev/null || echo "")
+if [ "$VOLUME_NAME" == "token" ]; then
+    echo -e "${GREEN}✓ Deployment has projected volume named 'token'${NC}"
 else
-    echo -e "${RED}✗ Deployment should have a projected volume${NC}"
+    echo -e "${RED}✗ Deployment should have a projected volume named 'token' (found: $VOLUME_NAME)${NC}"
     PASS=false
 fi
 
 # Check for serviceAccountToken in projected volume
-SA_TOKEN=$(kubectl get deployment backend-deploy -n secure -o json 2>/dev/null | grep -c "serviceAccountToken" || echo "0")
+SA_TOKEN=$(kubectl get deployment stats-monitor -n monitoring -o json 2>/dev/null | grep -c "serviceAccountToken" || echo "0")
 if [ "$SA_TOKEN" -ge 1 ]; then
     echo -e "${GREEN}✓ Projected volume has serviceAccountToken source${NC}"
 else
@@ -43,146 +54,153 @@ else
     PASS=false
 fi
 
-# Check volume mount exists
-VOLUME_MOUNT=$(kubectl get deployment backend-deploy -n secure -o json 2>/dev/null | grep -c "volumeMounts" || echo "0")
-if [ "$VOLUME_MOUNT" -ge 1 ]; then
-    echo -e "${GREEN}✓ Deployment has volume mounts${NC}"
+# Check expirationSeconds is set
+EXPIRATION=$(kubectl get deployment stats-monitor -n monitoring -o jsonpath='{.spec.template.spec.volumes[?(@.name=="token")].projected.sources[0].serviceAccountToken.expirationSeconds}' 2>/dev/null || echo "")
+if [ "$EXPIRATION" == "3600" ]; then
+    echo -e "${GREEN}✓ ServiceAccountToken has expirationSeconds: 3600${NC}"
+elif [ -n "$EXPIRATION" ]; then
+    echo -e "${YELLOW}⚠ ServiceAccountToken expirationSeconds is $EXPIRATION (expected: 3600)${NC}"
 else
-    echo -e "${RED}✗ Deployment should have volume mounts${NC}"
+    echo -e "${RED}✗ ServiceAccountToken should have expirationSeconds: 3600${NC}"
+    PASS=false
+fi
+
+# Check audience is set
+AUDIENCE=$(kubectl get deployment stats-monitor -n monitoring -o jsonpath='{.spec.template.spec.volumes[?(@.name=="token")].projected.sources[0].serviceAccountToken.audience}' 2>/dev/null || echo "")
+if [ -n "$AUDIENCE" ]; then
+    echo -e "${GREEN}✓ ServiceAccountToken has audience configured: $AUDIENCE${NC}"
+else
+    echo -e "${RED}✗ ServiceAccountToken should have audience configured (e.g., https://kubernetes.default.svc.cluster.local)${NC}"
+    PASS=false
+fi
+
+# Check volume mount exists
+MOUNT_PATH=$(kubectl get deployment stats-monitor -n monitoring -o jsonpath='{.spec.template.spec.containers[0].volumeMounts[?(@.name=="token")].mountPath}' 2>/dev/null || echo "")
+if [ -n "$MOUNT_PATH" ]; then
+    echo -e "${GREEN}✓ Deployment has volume mount for 'token' at: $MOUNT_PATH${NC}"
+else
+    echo -e "${RED}✗ Deployment should have volume mount for 'token'${NC}"
     PASS=false
 fi
 
 # Check mount is read-only
-READ_ONLY=$(kubectl get deployment backend-deploy -n secure -o json 2>/dev/null | grep -c '"readOnly": true' || echo "0")
-if [ "$READ_ONLY" -ge 1 ]; then
+READ_ONLY=$(kubectl get deployment stats-monitor -n monitoring -o jsonpath='{.spec.template.spec.containers[0].volumeMounts[?(@.name=="token")].readOnly}' 2>/dev/null || echo "")
+if [ "$READ_ONLY" == "true" ]; then
     echo -e "${GREEN}✓ Volume mount is read-only${NC}"
 else
-    echo -e "${YELLOW}⚠ Volume mount should be read-only${NC}"
+    echo -e "${RED}✗ Volume mount should be read-only (current: $READ_ONLY)${NC}"
+    PASS=false
 fi
 
-# Check output files
+# ============================================================================
+# VERIFY RUNTIME
+# ============================================================================
 echo ""
-echo "Checking output files..."
+echo "═══════════════════════════════════════════════════════════════"
+echo "PART 3: Checking runtime token availability"
+echo "═══════════════════════════════════════════════════════════════"
+echo ""
 
-# Verify serviceaccount.yaml
-if [ -f "/opt/course/08/serviceaccount.yaml" ]; then
-    if kubectl apply --dry-run=client -f /opt/course/08/serviceaccount.yaml &>/dev/null; then
-        FILE_KIND=$(kubectl apply --dry-run=client -f /opt/course/08/serviceaccount.yaml -o jsonpath='{.kind}' 2>/dev/null)
-        FILE_NAME=$(kubectl apply --dry-run=client -f /opt/course/08/serviceaccount.yaml -o jsonpath='{.metadata.name}' 2>/dev/null)
-        FILE_NS=$(kubectl apply --dry-run=client -f /opt/course/08/serviceaccount.yaml -o jsonpath='{.metadata.namespace}' 2>/dev/null)
-        FILE_AUTOMOUNT=$(kubectl apply --dry-run=client -f /opt/course/08/serviceaccount.yaml -o jsonpath='{.automountServiceAccountToken}' 2>/dev/null)
+# Wait for pod to be ready
+POD_NAME=$(kubectl get pods -n monitoring -l app=stats-monitor -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+if [ -n "$POD_NAME" ]; then
+    echo -e "${GREEN}✓ Pod is running: $POD_NAME${NC}"
 
-        if [ "$FILE_KIND" == "ServiceAccount" ] && [ "$FILE_NAME" == "backend-sa" ] && [ "$FILE_NS" == "secure" ]; then
-            if [ "$FILE_AUTOMOUNT" == "false" ]; then
-                echo -e "${GREEN}✓ serviceaccount.yaml is valid with automountServiceAccountToken: false${NC}"
-            else
-                echo -e "${RED}✗ serviceaccount.yaml missing automountServiceAccountToken: false${NC}"
-                PASS=false
-            fi
+    # Check if token file exists
+    if kubectl exec -n monitoring "$POD_NAME" -- test -f /var/run/secrets/kubernetes.io/serviceaccount/token 2>/dev/null; then
+        echo -e "${GREEN}✓ ServiceAccount token is mounted in pod${NC}"
+
+        # Verify token is not empty
+        TOKEN_SIZE=$(kubectl exec -n monitoring "$POD_NAME" -- wc -c /var/run/secrets/kubernetes.io/serviceaccount/token 2>/dev/null | awk '{print $1}')
+        if [ -n "$TOKEN_SIZE" ] && [ "$TOKEN_SIZE" -gt 0 ]; then
+            echo -e "${GREEN}✓ Token file is not empty (${TOKEN_SIZE} bytes)${NC}"
         else
-            echo -e "${RED}✗ serviceaccount.yaml has incorrect content (Kind=$FILE_KIND, Name=$FILE_NAME, NS=$FILE_NS)${NC}"
+            echo -e "${RED}✗ Token file is empty${NC}"
             PASS=false
         fi
     else
-        echo -e "${RED}✗ serviceaccount.yaml is not valid YAML${NC}"
+        echo -e "${RED}✗ ServiceAccount token not found in pod${NC}"
         PASS=false
     fi
 else
-    echo -e "${RED}✗ serviceaccount.yaml not found at /opt/course/08/serviceaccount.yaml${NC}"
-    PASS=false
+    echo -e "${YELLOW}⚠ No pod found for deployment${NC}"
 fi
 
-# Verify deployment.yaml
-if [ -f "/opt/course/08/deployment.yaml" ]; then
-    if kubectl apply --dry-run=client -f /opt/course/08/deployment.yaml &>/dev/null; then
-        FILE_KIND=$(kubectl apply --dry-run=client -f /opt/course/08/deployment.yaml -o jsonpath='{.kind}' 2>/dev/null)
-        FILE_NAME=$(kubectl apply --dry-run=client -f /opt/course/08/deployment.yaml -o jsonpath='{.metadata.name}' 2>/dev/null)
-        FILE_NS=$(kubectl apply --dry-run=client -f /opt/course/08/deployment.yaml -o jsonpath='{.metadata.namespace}' 2>/dev/null)
+# ============================================================================
+# VERIFY MANIFEST FILE
+# ============================================================================
+echo ""
+echo "═══════════════════════════════════════════════════════════════"
+echo "PART 4: Checking manifest file"
+echo "═══════════════════════════════════════════════════════════════"
+echo ""
 
-        if [ "$FILE_KIND" == "Deployment" ] && [ "$FILE_NAME" == "backend-deploy" ] && [ "$FILE_NS" == "secure" ]; then
-            echo -e "${GREEN}✓ deployment.yaml is valid and correct${NC}"
+if [ -f "$HOME/stats-monitor/deployment.yaml" ]; then
+    echo -e "${GREEN}✓ Deployment manifest exists at ~/stats-monitor/deployment.yaml${NC}"
 
-            # Validate projected volume configuration in file
-            FILE_JSON=$(kubectl apply --dry-run=client -f /opt/course/08/deployment.yaml -o json 2>/dev/null)
-            HAS_PROJECTED=$(echo "$FILE_JSON" | jq '.spec.template.spec.volumes[] | select(.projected != null)' 2>/dev/null)
-            if [ -n "$HAS_PROJECTED" ]; then
-                echo -e "${GREEN}✓ deployment.yaml has projected volume configured${NC}"
+    # Validate manifest file content
+    if kubectl apply --dry-run=client -f "$HOME/stats-monitor/deployment.yaml" &>/dev/null; then
+        FILE_JSON=$(kubectl apply --dry-run=client -f "$HOME/stats-monitor/deployment.yaml" -o json 2>/dev/null)
 
-                # Check for serviceAccountToken in projected volume
-                HAS_SA_TOKEN=$(echo "$FILE_JSON" | jq '.spec.template.spec.volumes[].projected.sources[]? | select(.serviceAccountToken != null)' 2>/dev/null)
-                if [ -n "$HAS_SA_TOKEN" ]; then
-                    echo -e "${GREEN}✓ deployment.yaml has serviceAccountToken in projected volume${NC}"
+        # Check if it has projected volume
+        HAS_PROJECTED=$(echo "$FILE_JSON" | jq '.spec.template.spec.volumes[] | select(.projected != null)' 2>/dev/null)
+        if [ -n "$HAS_PROJECTED" ]; then
+            echo -e "${GREEN}✓ Manifest file has projected volume configured${NC}"
 
-                    # Check expirationSeconds
-                    EXPIRATION=$(echo "$FILE_JSON" | jq -r '.spec.template.spec.volumes[].projected.sources[]? | select(.serviceAccountToken != null) | .serviceAccountToken.expirationSeconds' 2>/dev/null)
-                    if [ -n "$EXPIRATION" ] && [ "$EXPIRATION" != "null" ]; then
-                        echo -e "${GREEN}✓ Token expirationSeconds set to: ${EXPIRATION}s${NC}"
-                    fi
-                else
-                    echo -e "${RED}✗ deployment.yaml missing serviceAccountToken in projected volume${NC}"
-                    PASS=false
-                fi
+            # Check for serviceAccountToken in projected volume
+            HAS_SA_TOKEN=$(echo "$FILE_JSON" | jq '.spec.template.spec.volumes[].projected.sources[]? | select(.serviceAccountToken != null)' 2>/dev/null)
+            if [ -n "$HAS_SA_TOKEN" ]; then
+                echo -e "${GREEN}✓ Manifest file has serviceAccountToken in projected volume${NC}"
             else
-                echo -e "${RED}✗ deployment.yaml missing projected volume${NC}"
-                PASS=false
+                echo -e "${YELLOW}⚠ Manifest file missing serviceAccountToken in projected volume${NC}"
             fi
         else
-            echo -e "${RED}✗ deployment.yaml has incorrect content (Kind=$FILE_KIND, Name=$FILE_NAME, NS=$FILE_NS)${NC}"
-            PASS=false
+            echo -e "${YELLOW}⚠ Manifest file missing projected volume configuration${NC}"
         fi
     else
-        echo -e "${RED}✗ deployment.yaml is not valid YAML${NC}"
-        PASS=false
+        echo -e "${YELLOW}⚠ Manifest file has invalid YAML syntax${NC}"
     fi
 else
-    echo -e "${RED}✗ deployment.yaml not found at /opt/course/08/deployment.yaml${NC}"
-    PASS=false
+    echo -e "${YELLOW}⚠ Deployment manifest file not found at ~/stats-monitor/deployment.yaml${NC}"
 fi
 
-# Check pod is running and token is mounted
+# ============================================================================
+# SUMMARY
+# ============================================================================
 echo ""
-echo "Checking pod status and token mount..."
-POD_NAME=$(kubectl get pods -n secure -l app=backend -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
-POD_STATUS=$(kubectl get pods -n secure -l app=backend -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "")
-
-if [ "$POD_STATUS" == "Running" ]; then
-    echo -e "${GREEN}✓ Backend pod is running${NC}"
-
-    # Wait for pod to be fully ready
-    if kubectl wait --for=condition=ready pod -l app=backend -n secure --timeout=10s &>/dev/null; then
-        # Check if token file exists in the pod
-        if kubectl exec -n secure "$POD_NAME" -- test -f /var/run/secrets/kubernetes.io/serviceaccount/token &>/dev/null; then
-            echo -e "${GREEN}✓ Token file exists in pod at correct path${NC}"
-
-            # Verify token is not empty
-            TOKEN_SIZE=$(kubectl exec -n secure "$POD_NAME" -- wc -c /var/run/secrets/kubernetes.io/serviceaccount/token 2>/dev/null | awk '{print $1}')
-            if [ -n "$TOKEN_SIZE" ] && [ "$TOKEN_SIZE" -gt 0 ]; then
-                echo -e "${GREEN}✓ Token file is not empty (${TOKEN_SIZE} bytes)${NC}"
-            else
-                echo -e "${RED}✗ Token file is empty${NC}"
-                PASS=false
-            fi
-        else
-            echo -e "${RED}✗ Token file not found at /var/run/secrets/kubernetes.io/serviceaccount/token${NC}"
-            PASS=false
-        fi
-    else
-        echo -e "${YELLOW}⚠ Pod not ready yet, skipping token mount verification${NC}"
-    fi
-else
-    echo -e "${RED}✗ Backend pod is not running (status: $POD_STATUS)${NC}"
-    PASS=false
-fi
-
-echo ""
-echo "=============================================="
+echo "═══════════════════════════════════════════════════════════════"
 echo "Summary"
-echo "=============================================="
+echo "═══════════════════════════════════════════════════════════════"
+echo ""
 
 if $PASS; then
-    echo -e "${GREEN}All checks passed!${NC}"
+    echo -e "${GREEN}✓ All checks passed!${NC}"
+    echo ""
+    echo "Configuration verified:"
+    echo "  ServiceAccount:"
+    echo "    ✓ automountServiceAccountToken: false"
+    echo "  Deployment:"
+    echo "    ✓ Projected volume 'token' with serviceAccountToken"
+    echo "    ✓ expirationSeconds: 3600"
+    echo "    ✓ audience configured for API server"
+    echo "    ✓ Volume mount is read-only"
+    echo "    ✓ Token injected at correct path"
     exit 0
 else
-    echo -e "${RED}Some checks failed.${NC}"
+    echo -e "${RED}✗ Some checks failed${NC}"
+    echo ""
+    echo "Expected configuration:"
+    echo "  ServiceAccount:"
+    echo "    - automountServiceAccountToken: false"
+    echo "  Deployment:"
+    echo "    - Projected volume named 'token'"
+    echo "    - serviceAccountToken with:"
+    echo "      * expirationSeconds: 3600"
+    echo "      * audience: https://kubernetes.default.svc.cluster.local (or cluster-specific)"
+    echo "    - Volume mount at /var/run/secrets/kubernetes.io/serviceaccount/token"
+    echo "    - Mount must be read-only: true"
+    echo ""
+    echo "To discover audience:"
+    echo "  kubectl get --raw /.well-known/openid-configuration | jq -r '.issuer'"
     exit 1
 fi

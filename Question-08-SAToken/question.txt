@@ -3,22 +3,21 @@ Domain: Cluster Hardening (15%)
 Difficulty: Medium
 
 Context:
-A ServiceAccount named `backend-sa` exists in namespace `secure`.
-A Deployment named `backend-deploy` exists in the same namespace using this ServiceAccount.
+A security audit has identified a Deployment improperly handling service account tokens, which could lead to security vulnerabilities.
 
 Task:
-1. Edit the ServiceAccount `backend-sa` to disable automatic token mounting
-   - Set `automountServiceAccountToken: false`
+1. First, modify the existing ServiceAccount stats-monitor-sa in the monitoring namespace to turn off automounting of API credentials.
 
-2. Edit the Deployment `backend-deploy` to manually mount the ServiceAccount token
-   using a projected volume:
-   - Create a projected volume named `token`
-   - Configure a serviceAccountToken source with:
-     - expirationSeconds: 3600
-     - path: token
-   - Mount the token at path `/var/run/secrets/kubernetes.io/serviceaccount`
-   - The volume mount must be read-only
+2. Next, modify the existing Deployment stats-monitor in the monitoring namespace to inject a ServiceAccount token at /var/run/secrets/kubernetes.io/serviceaccount/token. Use a projected volume named token for the token, and ensure the volume mount is read-only.
 
-Save the modified manifests to:
-- /opt/course/08/serviceaccount.yaml
-- /opt/course/08/deployment.yaml
+3. Configure the token to be valid for the current cluster's API Server. You must determine the correct issuer URL (audience) by inspecting the cluster configuration.
+
+Note: The Deployment's manifest file can be found at ~/stats-monitor/deployment.yaml
+
+Important:
+- The ServiceAccount and Deployment already exist - modify them, don't create new ones
+- Export the current manifests, edit them, then apply the changes
+- Ensure the projected volume includes:
+  - expirationSeconds: 3600
+  - audience: (discover the correct value for this cluster)
+

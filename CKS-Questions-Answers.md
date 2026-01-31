@@ -386,29 +386,63 @@ kubectl apply -f /opt/course/07/allow-from-prod.yaml
 
 ### Question
 
-ServiceAccount `backend-sa` and Deployment `backend-deploy` exist in namespace `secure`.
+A security audit has identified a Deployment improperly handling service account tokens.
+
+ServiceAccount `stats-monitor-sa` and Deployment `stats-monitor` exist in namespace `monitoring`.
 
 **Task:**
 1. Disable automatic token mounting on the ServiceAccount
-2. Manually mount the token using a projected volume with:
-   - expirationSeconds: 3600
-   - path: token
-   - Mount at: `/var/run/secrets/kubernetes.io/serviceaccount`
+2. Discover the correct audience for the cluster's API Server by inspecting cluster configuration
+3. Manually mount the token using a projected volume with:
+   - Name: `token`
+   - expirationSeconds: `3600`
+   - audience: (value discovered in step 2)
+   - path: `token`
+   - Mount at: `/var/run/secrets/kubernetes.io/serviceaccount/token`
+   - Mount must be read-only
 
-**Save:**
-- `/opt/course/08/serviceaccount.yaml`
-- `/opt/course/08/deployment.yaml`
+**Note:** The Deployment manifest can be found at `~/stats-monitor/deployment.yaml`
 
 ### Answer
+
+**Step 1: Discover the API Server audience**
+```bash
+# Method 1: Check OIDC configuration (most reliable)
+kubectl get --raw /.well-known/openid-configuration | jq -r '.issuer'
+
+# Method 2: Check API server flags
+kubectl -n kube-system get pod kube-apiserver-<node> -o yaml | grep service-account-issuer
+
+# Typical output: https://kubernetes.default.svc.cluster.local
+```
+
+**Step 2: Modify ServiceAccount**
+```bash
+# Option 1: Patch (quickest)
+kubectl patch sa stats-monitor-sa -n monitoring -p '{"automountServiceAccountToken": false}'
+
+# Option 2: Edit directly
+kubectl edit sa stats-monitor-sa -n monitoring
+# Add: automountServiceAccountToken: false
+```
 
 **serviceaccount.yaml:**
 ```yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: backend-sa
-  namespace: secure
+  name: stats-monitor-sa
+  namespace: monitoring
 automountServiceAccountToken: false
+```
+
+**Step 3: Modify Deployment**
+```bash
+# Edit the deployment manifest
+vi ~/stats-monitor/deployment.yaml
+
+# Apply changes
+kubectl apply -f ~/stats-monitor/deployment.yaml
 ```
 
 **deployment.yaml:**
@@ -416,28 +450,28 @@ automountServiceAccountToken: false
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend-deploy
-  namespace: secure
+  name: stats-monitor
+  namespace: monitoring
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: backend
+      app: stats-monitor
   template:
     metadata:
       labels:
-        app: backend
+        app: stats-monitor
     spec:
-      serviceAccountName: backend-sa
+      serviceAccountName: stats-monitor-sa
       containers:
-      - name: backend
-        image: nginx:1.25-alpine
-        ports:
-        - containerPort: 80
+      - name: stats
+        image: busybox:1.36
+        command: ["sleep", "3600"]
         volumeMounts:
         - name: token
-          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount/token
           readOnly: true
+          subPath: token
       volumes:
       - name: token
         projected:
@@ -445,7 +479,30 @@ spec:
           - serviceAccountToken:
               expirationSeconds: 3600
               path: token
+              audience: https://kubernetes.default.svc.cluster.local
 ```
+
+**Step 4: Verify**
+```bash
+# Verify ServiceAccount
+kubectl get sa stats-monitor-sa -n monitoring -o yaml | grep automountServiceAccountToken
+
+# Verify projected volume configuration
+kubectl get deployment stats-monitor -n monitoring -o yaml | grep -A8 "serviceAccountToken"
+
+# Verify token is mounted in pod
+kubectl exec -n monitoring deployment/stats-monitor -- ls -la /var/run/secrets/kubernetes.io/serviceaccount/
+
+# Check token content
+kubectl exec -n monitoring deployment/stats-monitor -- cat /var/run/secrets/kubernetes.io/serviceaccount/token | head -c 50
+```
+
+**Key Points:**
+- **Audience discovery**: Not provided in exam - must discover via cluster inspection
+- **Audience field**: Validates token is intended for specific cluster API server
+- **expirationSeconds**: Token auto-rotates before expiration
+- **readOnly: true**: Prevents token modification
+- **subPath: token**: Mounts single file instead of directory
 
 ---
 
