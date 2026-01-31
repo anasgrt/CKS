@@ -5,13 +5,33 @@ set -e
 
 echo "Setting up Question 11 - Pod Security Admission..."
 
-# Create namespace
-kubectl create namespace team-blue --dry-run=client -o yaml | kubectl apply -f -
+# Clean up existing namespace if it exists (handles stuck/corrupted state)
+if kubectl get namespace team-blue &>/dev/null; then
+  echo "Cleaning up existing namespace..."
+  kubectl delete namespace team-blue --wait=true --timeout=60s 2>/dev/null || true
+  # Wait for namespace to be fully deleted
+  echo "Waiting for namespace to be fully terminated..."
+  while kubectl get namespace team-blue &>/dev/null; do
+    sleep 2
+  done
+fi
 
-# Wait for default ServiceAccount to be created
+# Create namespace fresh
+kubectl create namespace team-blue
+
+# Wait for default ServiceAccount to be created (Kubernetes creates it automatically)
 echo "Waiting for default ServiceAccount..."
-kubectl wait --for=jsonpath='{.metadata.name}'=default serviceaccount/default -n team-blue --timeout=30s || true
-sleep 2
+for i in {1..30}; do
+  if kubectl get serviceaccount default -n team-blue &>/dev/null; then
+    echo "Default ServiceAccount is ready"
+    break
+  fi
+  if [ $i -eq 30 ]; then
+    echo "ERROR: Default ServiceAccount was not created in time"
+    exit 1
+  fi
+  sleep 1
+done
 
 # Create compliant pod (restricted level)
 cat << 'EOF' | kubectl apply -f -
