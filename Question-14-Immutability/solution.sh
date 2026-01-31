@@ -6,6 +6,11 @@ echo "Solution: Ensure Immutability of Containers at Runtime"
 echo "═══════════════════════════════════════════════════════════════════"
 echo ""
 
+echo "═══════════════════════════════════════════════════════════════════"
+echo "TASK 1: Make nginx Container Immutable"
+echo "═══════════════════════════════════════════════════════════════════"
+echo ""
+
 echo "STEP 1: First, try adding readOnlyRootFilesystem (it will fail)"
 echo "─────────────────────────────────────────────────────────────────"
 echo ""
@@ -81,8 +86,8 @@ kubectl apply -f /opt/course/14/deployment-immutable.yaml
 EOF
 
 echo ""
-echo "STEP 4: Verify the pod is running"
-echo "──────────────────────────────────"
+echo "STEP 4: Verify the nginx pod is running"
+echo "────────────────────────────────────────"
 echo ""
 cat << 'EOF'
 # Wait for rollout
@@ -98,6 +103,146 @@ kubectl exec -n immutable-ns deployment/nginx -- touch /test-file
 # But writable directories work
 kubectl exec -n immutable-ns deployment/nginx -- touch /tmp/test-file
 # Should succeed
+EOF
+
+echo ""
+echo ""
+echo "═══════════════════════════════════════════════════════════════════"
+echo "TASK 2: Harden lamp-deployment Security Context"
+echo "═══════════════════════════════════════════════════════════════════"
+echo ""
+
+echo "STEP 1: Export and edit lamp-deployment"
+echo "────────────────────────────────────────"
+echo ""
+cat << 'EOF'
+# Export current deployment
+kubectl get deployment lamp-deployment -n lamp -o yaml > /opt/course/14/lamp-deployment.yaml
+
+# Edit the file to add securityContext
+vi /opt/course/14/lamp-deployment.yaml
+EOF
+
+echo ""
+echo "STEP 2: Apply security context configuration"
+echo "─────────────────────────────────────────────"
+echo ""
+cat << 'EOF'
+# Add securityContext to container spec:
+        securityContext:
+          runAsUser: 20000
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+
+# Apache needs writable directories - add emptyDir volumes:
+        volumeMounts:
+        - name: apache-run
+          mountPath: /var/run/apache2
+        - name: apache-lock
+          mountPath: /var/lock/apache2
+        - name: tmp
+          mountPath: /tmp
+
+      volumes:
+      - name: apache-run
+        emptyDir: {}
+      - name: apache-lock
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
+EOF
+
+echo ""
+echo "STEP 3: Complete lamp-deployment manifest"
+echo "──────────────────────────────────────────"
+echo ""
+cat << 'EOF'
+cat << 'DEPLOY' > /opt/course/14/lamp-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lamp-deployment
+  namespace: lamp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lamp
+  template:
+    metadata:
+      labels:
+        app: lamp
+    spec:
+      containers:
+      - name: lamp
+        image: php:8.2-apache
+        ports:
+        - containerPort: 80
+        securityContext:
+          runAsUser: 20000
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+        volumeMounts:
+        - name: apache-run
+          mountPath: /var/run/apache2
+        - name: apache-lock
+          mountPath: /var/lock/apache2
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: apache-run
+        emptyDir: {}
+      - name: apache-lock
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
+DEPLOY
+
+kubectl apply -f /opt/course/14/lamp-deployment.yaml
+EOF
+
+echo ""
+echo "STEP 4: Verify lamp-deployment"
+echo "───────────────────────────────"
+echo ""
+cat << 'EOF'
+# Wait for rollout
+kubectl rollout status deployment lamp-deployment -n lamp
+
+# Check pod status
+kubectl get pods -n lamp
+
+# Verify security context
+kubectl get deployment lamp-deployment -n lamp -o jsonpath='{.spec.template.spec.containers[0].securityContext}' | jq
+
+# Verify user ID
+kubectl exec -n lamp deployment/lamp-deployment -- id
+# Should show: uid=20000
+
+# Verify read-only filesystem
+kubectl exec -n lamp deployment/lamp-deployment -- touch /test-file
+# Should fail: Read-only file system
+
+# Verify no privilege escalation
+kubectl get deployment lamp-deployment -n lamp -o jsonpath='{.spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation}'
+# Should show: false
+EOF
+
+echo ""
+echo "═══════════════════════════════════════════════════════════════════"
+echo "SUMMARY"
+echo "═══════════════════════════════════════════════════════════════════"
+echo ""
+echo "Security hardening applied:"
+echo "  Task 1 - nginx:"
+echo "    ✓ readOnlyRootFilesystem: true"
+echo "    ✓ emptyDir volumes for /var/cache/nginx, /var/run, /tmp"
+echo ""
+echo "  Task 2 - lamp-deployment:"
+echo "    ✓ runAsUser: 20000"
+echo "    ✓ readOnlyRootFilesystem: true"
+echo "    ✓ allowPrivilegeEscalation: false"
+echo "    ✓ emptyDir volumes for Apache writable paths"
 EOF
 
 echo ""

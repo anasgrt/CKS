@@ -3,11 +3,11 @@ Domain: Monitoring, Logging and Runtime Security (20%)
 Difficulty: Medium
 
 Context:
+Two deployments need security hardening to ensure runtime immutability and security best practices.
+
+Task 1: Make nginx Container Immutable
 A Deployment named `nginx` exists in the `immutable-ns` namespace.
 The container filesystem needs to be made immutable at runtime for security.
-
-Task:
-Modify the Deployment to ensure the container filesystem is immutable at runtime.
 
 1. Edit the Deployment to add `readOnlyRootFilesystem: true` in the container's securityContext
 
@@ -22,3 +22,13 @@ Modify the Deployment to ensure the container filesystem is immutable at runtime
 4. Ensure the pod is running successfully after the changes
 
 Save the modified Deployment to: /opt/course/14/deployment-immutable.yaml
+
+Task 2: Harden lamp-deployment Security Context
+Modify the existing Deployment named `lamp-deployment`, running in namespace `lamp`, so that its containers:
+- run with user ID 20000
+- use a read-only root filesystem
+- forbid privilege escalation
+
+Note: The container may require emptyDir volumes for writable paths.
+
+Save the modified Deployment to: /opt/course/14/lamp-deployment.yaml
