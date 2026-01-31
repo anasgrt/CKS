@@ -129,6 +129,35 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Check webhook test was performed
+# ══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "6. Checking ImagePolicyWebhook test..."
+if [ -f "/opt/course/10/webhook-test.txt" ]; then
+    echo -e "${GREEN}   ✓ webhook-test.txt exists${NC}"
+
+    # Check if the test shows a denial (which is expected behavior)
+    if grep -qi "forbidden\|denied\|error\|no endpoints" /opt/course/10/webhook-test.txt; then
+        echo -e "${GREEN}   ✓ Test shows pod was DENIED - ImagePolicyWebhook working correctly!${NC}"
+    else
+        echo -e "${YELLOW}   ⚠ Test output doesn't show expected denial. Check the content.${NC}"
+    fi
+else
+    echo -e "${RED}   ✗ webhook-test.txt not found at /opt/course/10/${NC}"
+    echo -e "${YELLOW}     Run: kubectl run test-pod --image=nginx 2>&1 | tee /opt/course/10/webhook-test.txt${NC}"
+    PASS=false
+fi
+
+# Also verify no test pod exists (it should have been denied)
+if kubectl get pod test-pod &>/dev/null; then
+    echo -e "${RED}   ✗ test-pod exists! This means ImagePolicyWebhook may not be working${NC}"
+    echo -e "${YELLOW}     With defaultAllow: false, pod creation should be DENIED${NC}"
+    PASS=false
+else
+    echo -e "${GREEN}   ✓ test-pod does not exist (correctly denied)${NC}"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Summary
 # ══════════════════════════════════════════════════════════════════════════════
 echo ""
@@ -149,5 +178,6 @@ else
     echo "[ ] Set --admission-control-config-file"
     echo "[ ] Added volume and volumeMount for epconfig"
     echo "[ ] Saved copies to /opt/course/10/"
+    echo "[ ] Tested webhook and saved error to /opt/course/10/webhook-test.txt"
     exit 1
 fi

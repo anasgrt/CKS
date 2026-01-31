@@ -101,6 +101,30 @@ sudo cp /etc/kubernetes/epconfig/kubeconfig.yaml /opt/course/10/
 EOF
 
 echo ""
+echo "STEP 7: Test the ImagePolicyWebhook (IMPORTANT!)"
+echo "─────────────────────────────────────────────────"
+echo ""
+cat << 'EOF'
+# Try to create a test pod - this SHOULD FAIL!
+# Because defaultAllow=false and the webhook service doesn't exist,
+# the API server will deny all pod creations (fail-closed behavior)
+
+kubectl run test-pod --image=nginx 2>&1 | tee /opt/course/10/webhook-test.txt
+
+# Expected error message should contain something like:
+# "Error from server (Forbidden): pods "test-pod" is forbidden:
+#  Post ... no endpoints available for service"
+# OR
+# "image policy webhook backend denied one or more images"
+
+# This PROVES the ImagePolicyWebhook is working correctly!
+# With defaultAllow: false, pods are denied when webhook is unreachable.
+
+# Cleanup the test pod if it somehow got created (it shouldn't)
+kubectl delete pod test-pod --ignore-not-found 2>/dev/null
+EOF
+
+echo ""
 echo "═══════════════════════════════════════════════════════════════════"
 echo "CORRECTED CONFIGURATION FILES:"
 echo "═══════════════════════════════════════════════════════════════════"
@@ -152,7 +176,10 @@ echo "1. defaultAllow setting is CRITICAL for security:"
 echo "   - false = DENY pods if webhook unreachable (fail-closed, SECURE)"
 echo "   - true  = ALLOW pods if webhook unreachable (fail-open, INSECURE)"
 echo ""
-echo "2. current-context MUST be set in the kubeconfig - common mistake!"
+echo "2. ⚠️  current-context MUST be set in the kubeconfig - VERY common mistake!"
+echo "   - If current-context is empty or missing, the webhook will NOT work"
+echo "   - PAY SPECIAL ATTENTION to this in the exam!"
+echo "   - Required: current-context: default (not empty \"\")"
 echo ""
 echo "3. The webhook server URL format:"
 echo "   https://<service-name>.<namespace>.svc:<port>/<path>"

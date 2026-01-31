@@ -587,20 +587,23 @@ volumeMounts:
 
 ### Question
 
-Enable the ImagePolicyWebhook admission controller:
+Fix and complete an existing ImagePolicyWebhook configuration at `/etc/kubernetes/epconfig/`:
 
-1. Add `ImagePolicyWebhook` to `--enable-admission-plugins`
-2. Set `--admission-control-config-file`
-3. Set `defaultAllow` to `false`
-4. Set webhook server URL to: `https://image-policy-webhook.default.svc:443/image_policy`
+1. Fix `defaultAllow` from `true` to `false` (fail-closed)
+2. Fix the webhook server URL (currently a placeholder)
+3. Fix `current-context` (currently empty)
+4. Enable `ImagePolicyWebhook` in `--enable-admission-plugins`
+5. Set `--admission-control-config-file`
+6. Test the webhook by trying to create a pod (should be DENIED)
 
 **Save:**
-- `/opt/course/10/admission-config.yaml`
+- `/opt/course/10/admission_config.yaml`
 - `/opt/course/10/kubeconfig.yaml`
+- `/opt/course/10/webhook-test.txt` (error message from test)
 
 ### Answer
 
-**admission_config.yaml:**
+**Fix admission_config.yaml:**
 ```yaml
 apiVersion: apiserver.config.k8s.io/v1
 kind: AdmissionConfiguration
@@ -612,30 +615,30 @@ plugins:
       allowTTL: 50
       denyTTL: 50
       retryBackoff: 500
-      defaultAllow: false
+      defaultAllow: false  # Changed from true to false!
 ```
 
-**kubeconfig.yaml:**
+**Fix kubeconfig.yaml:**
 ```yaml
 apiVersion: v1
 kind: Config
 clusters:
 - name: image-policy-webhook
   cluster:
-    server: https://image-policy-webhook.default.svc:443/image_policy
-    certificate-authority: /etc/kubernetes/epconfig/webhook-ca.crt
+    server: https://image-policy-webhook.default.svc:443/image_policy  # Fixed URL
+    insecure-skip-tls-verify: true
 users:
 - name: api-server
-  user:
-    client-certificate: /etc/kubernetes/epconfig/client.crt
-    client-key: /etc/kubernetes/epconfig/client.key
+  user: {}
 contexts:
 - name: default
   context:
     cluster: image-policy-webhook
     user: api-server
-current-context: default
+current-context: default  # ⚠️ CRITICAL: Fixed from empty ""!
 ```
+
+> **⚠️ EXAM ALERT:** The `current-context` field is **MANDATORY** and often forgotten! If `current-context` is empty (`""`) or missing, the ImagePolicyWebhook will **NOT work** and the API server will fail. Pay special attention to this field in the exam!
 
 **API server manifest changes:**
 ```yaml
@@ -655,6 +658,15 @@ current-context: default
     path: /etc/kubernetes/epconfig
     type: DirectoryOrCreate
   name: epconfig
+```
+
+**Test the ImagePolicyWebhook:**
+```bash
+# Try to create a test pod - should be DENIED!
+kubectl run test-pod --image=nginx 2>&1 | tee /opt/course/10/webhook-test.txt
+
+# Expected: Error (Forbidden) - because defaultAllow=false and webhook unreachable
+# This PROVES fail-closed behavior is working correctly!
 ```
 
 ---

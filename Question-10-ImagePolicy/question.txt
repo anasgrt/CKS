@@ -26,6 +26,13 @@ Fix and complete the existing ImagePolicyWebhook configuration:
 
 4. Wait for the API server to restart and verify it's running
 
+5. Test the ImagePolicyWebhook is working:
+   - Try to create a test pod: `kubectl run test-pod --image=nginx`
+   - The pod creation should be DENIED (because defaultAllow=false and webhook is unreachable)
+   - Save the error message to: `/opt/course/10/webhook-test.txt`
+   - This confirms the fail-closed behavior is working correctly
+
 Save corrected copies to:
 - /opt/course/10/admission_config.yaml
 - /opt/course/10/kubeconfig.yaml
+- /opt/course/10/webhook-test.txt (error message from test pod creation)
