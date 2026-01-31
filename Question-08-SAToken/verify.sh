@@ -36,8 +36,11 @@ echo "PART 2: Checking Deployment configuration"
 echo "═══════════════════════════════════════════════════════════════"
 echo ""
 
+# Get deployment JSON once for all checks
+DEPLOY_JSON=$(kubectl get deployment stats-monitor -n monitoring -o json 2>/dev/null)
+
 # Check for projected volume named 'token'
-VOLUME_NAME=$(kubectl get deployment stats-monitor -n monitoring -o jsonpath='{.spec.template.spec.volumes[?(@.projected)].name}' 2>/dev/null || echo "")
+VOLUME_NAME=$(echo "$DEPLOY_JSON" | jq -r '.spec.template.spec.volumes[] | select(.projected != null) | .name' 2>/dev/null | head -1)
 if [ "$VOLUME_NAME" == "token" ]; then
     echo -e "${GREEN}✓ Deployment has projected volume named 'token'${NC}"
 else
@@ -46,7 +49,7 @@ else
 fi
 
 # Check for serviceAccountToken in projected volume
-SA_TOKEN_CHECK=$(kubectl get deployment stats-monitor -n monitoring -o jsonpath='{.spec.template.spec.volumes[?(@.name=="token")].projected.sources[*].serviceAccountToken}' 2>/dev/null || echo "")
+SA_TOKEN_CHECK=$(echo "$DEPLOY_JSON" | jq -r '.spec.template.spec.volumes[] | select(.name=="token") | .projected.sources[]? | select(.serviceAccountToken != null) | .serviceAccountToken' 2>/dev/null)
 if [ -n "$SA_TOKEN_CHECK" ]; then
     echo -e "${GREEN}✓ Projected volume has serviceAccountToken source${NC}"
 else
@@ -55,7 +58,7 @@ else
 fi
 
 # Check expirationSeconds is set
-EXPIRATION=$(kubectl get deployment stats-monitor -n monitoring -o json 2>/dev/null | jq -r '.spec.template.spec.volumes[] | select(.name=="token") | .projected.sources[].serviceAccountToken.expirationSeconds // ""' 2>/dev/null | head -1)
+EXPIRATION=$(echo "$DEPLOY_JSON" | jq -r '.spec.template.spec.volumes[] | select(.name=="token") | .projected.sources[]?.serviceAccountToken.expirationSeconds // empty' 2>/dev/null | head -1)
 if [ "$EXPIRATION" == "3600" ]; then
     echo -e "${GREEN}✓ ServiceAccountToken has expirationSeconds: 3600${NC}"
 elif [ -n "$EXPIRATION" ]; then
@@ -66,7 +69,7 @@ else
 fi
 
 # Check audience is set
-AUDIENCE=$(kubectl get deployment stats-monitor -n monitoring -o json 2>/dev/null | jq -r '.spec.template.spec.volumes[] | select(.name=="token") | .projected.sources[].serviceAccountToken.audience // ""' 2>/dev/null | head -1)
+AUDIENCE=$(echo "$DEPLOY_JSON" | jq -r '.spec.template.spec.volumes[] | select(.name=="token") | .projected.sources[]?.serviceAccountToken.audience // empty' 2>/dev/null | head -1)
 if [ -n "$AUDIENCE" ]; then
     echo -e "${GREEN}✓ ServiceAccountToken has audience configured: $AUDIENCE${NC}"
 else
@@ -75,7 +78,7 @@ else
 fi
 
 # Check volume mount exists
-MOUNT_PATH=$(kubectl get deployment stats-monitor -n monitoring -o jsonpath='{.spec.template.spec.containers[0].volumeMounts[?(@.name=="token")].mountPath}' 2>/dev/null || echo "")
+MOUNT_PATH=$(echo "$DEPLOY_JSON" | jq -r '.spec.template.spec.containers[0].volumeMounts[]? | select(.name=="token") | .mountPath // empty' 2>/dev/null | head -1)
 if [ -n "$MOUNT_PATH" ]; then
     echo -e "${GREEN}✓ Deployment has volume mount for 'token' at: $MOUNT_PATH${NC}"
 else
@@ -84,7 +87,7 @@ else
 fi
 
 # Check mount is read-only
-READ_ONLY=$(kubectl get deployment stats-monitor -n monitoring -o jsonpath='{.spec.template.spec.containers[0].volumeMounts[?(@.name=="token")].readOnly}' 2>/dev/null || echo "")
+READ_ONLY=$(echo "$DEPLOY_JSON" | jq -r '.spec.template.spec.containers[0].volumeMounts[]? | select(.name=="token") | .readOnly // empty' 2>/dev/null | head -1)
 if [ "$READ_ONLY" == "true" ]; then
     echo -e "${GREEN}✓ Volume mount is read-only${NC}"
 else
