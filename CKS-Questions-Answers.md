@@ -469,9 +469,8 @@ spec:
         command: ["sleep", "3600"]
         volumeMounts:
         - name: token
-          mountPath: /var/run/secrets/kubernetes.io/serviceaccount/token
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
           readOnly: true
-          subPath: token
       volumes:
       - name: token
         projected:
@@ -502,7 +501,13 @@ kubectl exec -n monitoring deployment/stats-monitor -- cat /var/run/secrets/kube
 - **Audience field**: Validates token is intended for specific cluster API server
 - **expirationSeconds**: Token auto-rotates before expiration
 - **readOnly: true**: Prevents token modification
-- **subPath: token**: Mounts single file instead of directory
+
+**⚠️ CRITICAL - How path and mountPath Work Together:**
+- **mountPath**: The directory where the volume is mounted (`/var/run/secrets/kubernetes.io/serviceaccount`)
+- **path**: The filename created **INSIDE** that mounted directory (`token`)
+- **Final location**: `mountPath + path = /var/run/secrets/kubernetes.io/serviceaccount/token`
+- **DO NOT use subPath**: Not in official docs, prevents auto-rotation, not needed with projected volumes
+- Projected volumes can combine multiple sources (SA token + configMap + secret) into one directory
 
 ---
 

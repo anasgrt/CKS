@@ -96,9 +96,8 @@ spec:
         command: ["sleep", "3600"]
         volumeMounts:
         - name: token
-          mountPath: /var/run/secrets/kubernetes.io/serviceaccount/token
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
           readOnly: true
-          subPath: token
       volumes:
       - name: token
         projected:
@@ -159,5 +158,10 @@ echo "SECURITY BEST PRACTICES:"
 echo "  - Always mount tokens as read-only"
 echo "  - Use shortest practical expirationSeconds"
 echo "  - Only inject tokens into pods that need them"
-echo "  - Use subPath to mount single file, not directory"
+echo ""
+echo "⚠️  IMPORTANT - HOW PATH AND MOUNTPATH WORK:"
+echo "  - mountPath: Directory where volume is mounted (/var/run/secrets/kubernetes.io/serviceaccount)"
+echo "  - path: Filename created INSIDE that directory (token)"
+echo "  - Final location: mountPath + path = /var/run/secrets/kubernetes.io/serviceaccount/token"
+echo "  - DO NOT use subPath - it's not in the official docs and prevents token auto-rotation"
 
