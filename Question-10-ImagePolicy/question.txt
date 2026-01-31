@@ -7,17 +7,17 @@ ImagePolicyWebhook is an admission controller that allows you to validate
 container images against an external service before allowing pods to be created.
 
 Task:
-Configuration files are provided at /etc/kubernetes/epconfig/
+A directory has been created at /etc/kubernetes/epconfig/ for your configuration files.
 
 1. Enable the `ImagePolicyWebhook` admission controller in the kube-apiserver:
    - Add `ImagePolicyWebhook` to `--enable-admission-plugins`
    - Set `--admission-control-config-file` to point to the admission config file
 
-2. Edit the ImagePolicyWebhook configuration file to configure:
+2. Create the ImagePolicyWebhook configuration file (admission_config.yaml) with:
    - Set `defaultAllow` to `false` (deny images by default when webhook is unreachable)
    - Configure the `kubeConfigFile` path
 
-3. Edit the kubeconfig file for the webhook backend:
+3. Create the kubeconfig file for the webhook backend with:
    - Set the `server` URL to: https://image-policy-webhook.default.svc:443/image_policy
    - Ensure proper certificate configuration
 

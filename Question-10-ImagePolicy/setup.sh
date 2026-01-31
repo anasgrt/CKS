@@ -9,9 +9,9 @@ echo "Setting up Question 10 - ImagePolicyWebhook..."
 rm -rf /opt/course/10
 rm -rf /etc/kubernetes/epconfig
 
-# Restore original kube-apiserver if backup exists
+# Restore original kube-apiserver if backup exists (from previous attempt)
 if [ -f "/etc/kubernetes/manifests/kube-apiserver.yaml.q10.bak" ]; then
-    echo "Restoring original kube-apiserver configuration..."
+    echo "Cleaning up previous attempt - restoring API server..."
     cp /etc/kubernetes/manifests/kube-apiserver.yaml.q10.bak /etc/kubernetes/manifests/kube-apiserver.yaml
     sleep 30
 fi
