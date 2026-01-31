@@ -43,12 +43,14 @@ metadata:
 spec:
   securityContext:
     runAsNonRoot: true
-    runAsUser: 1000
+    runAsUser: 101
     seccompProfile:
       type: RuntimeDefault
   containers:
   - name: nginx
-    image: nginx:1.25-alpine
+    image: nginxinc/nginx-unprivileged:1.25-alpine
+    ports:
+    - containerPort: 8080
     securityContext:
       allowPrivilegeEscalation: false
       capabilities:
