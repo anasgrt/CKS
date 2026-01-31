@@ -3,9 +3,9 @@ Domain: Minimize Microservice Vulnerabilities (20%)
 Difficulty: Medium
 
 Context:
-A namespace (team-blue) has Pod Security Admission configured with the `restricted`
-level in `enforce` mode. Several pods exist in this namespace, but some were created
-before the policy was enforced and do not comply with the `restricted` Pod Security Standard.
+A namespace (team-blue) needs to have Pod Security Admission configured with the `restricted`
+level in `enforce` mode. Several pods already exist in this namespace that were created
+before the policy will be enforced, and some may not comply with the `restricted` Pod Security Standard.
 
 Task:
 1. Use `kubectl label --dry-run=server` to identify pods that violate the Pod Security Standard:
