@@ -1,3 +1,5 @@
+# Reference: CORRECTED admission_config.yaml
+# This is what the final configuration should look like after fixing
 apiVersion: apiserver.config.k8s.io/v1
 kind: AdmissionConfiguration
 plugins:
@@ -8,4 +10,4 @@ plugins:
       allowTTL: 50
       denyTTL: 50
       retryBackoff: 500
-      defaultAllow: false
+      defaultAllow: false  # IMPORTANT: Must be false for security (fail-closed)

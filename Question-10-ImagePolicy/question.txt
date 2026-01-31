@@ -3,26 +3,29 @@ Domain: Supply Chain Security (20%)
 Difficulty: Medium-Hard
 
 Context:
-ImagePolicyWebhook is an admission controller that allows you to validate
-container images against an external service before allowing pods to be created.
+A team attempted to configure the ImagePolicyWebhook admission controller but left
+the configuration incomplete. The configuration files exist at /etc/kubernetes/epconfig/
+but contain errors and missing values that need to be fixed.
 
 Task:
-A directory has been created at /etc/kubernetes/epconfig/ for your configuration files.
+Fix and complete the existing ImagePolicyWebhook configuration:
 
-1. Enable the `ImagePolicyWebhook` admission controller in the kube-apiserver:
-   - Add `ImagePolicyWebhook` to `--enable-admission-plugins`
-   - Set `--admission-control-config-file` to point to the admission config file
+1. Review and fix /etc/kubernetes/epconfig/admission_config.yaml:
+   - Change `defaultAllow` from `true` to `false` (fail-closed for security)
+   - Verify the kubeConfigFile path is correct
 
-2. Create the ImagePolicyWebhook configuration file (admission_config.yaml) with:
-   - Set `defaultAllow` to `false` (deny images by default when webhook is unreachable)
-   - Configure the `kubeConfigFile` path
-
-3. Create the kubeconfig file for the webhook backend with:
+2. Review and fix /etc/kubernetes/epconfig/kubeconfig.yaml:
    - Set the `server` URL to: https://image-policy-webhook.default.svc:443/image_policy
-   - Ensure proper certificate configuration
+     (currently set to a placeholder value)
+   - Ensure `current-context` is set to `default`
 
-4. Ensure the API server mounts the necessary volumes for the configuration files
+3. Enable the ImagePolicyWebhook admission controller in the API server:
+   - Add `ImagePolicyWebhook` to the `--enable-admission-plugins` flag
+   - Set `--admission-control-config-file` to `/etc/kubernetes/epconfig/admission_config.yaml`
+   - Add the required volume and volumeMount for `/etc/kubernetes/epconfig`
 
-Save copies to:
-- /opt/course/10/admission-config.yaml
+4. Wait for the API server to restart and verify it's running
+
+Save corrected copies to:
+- /opt/course/10/admission_config.yaml
 - /opt/course/10/kubeconfig.yaml
