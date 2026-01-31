@@ -85,9 +85,8 @@ echo "════════════════════════�
 echo "TRIVY SBOM COMMANDS:"
 echo "═══════════════════════════════════════════════════════════════════"
 cat << 'EOF'
-# Generate SBOM in different formats:
-trivy image --format spdx-json --output <path> <image>   # SPDX-JSON format
-trivy image --format cyclonedx --output <path> <image>   # CycloneDX format
+# Generate SBOM in SPDX formats:
+trivy image --format spdx-json --output <path> <image>   # SPDX-JSON format (recommended)
 trivy image --format spdx --output <path> <image>        # SPDX tag-value format
 
 # Scan an existing SBOM for vulnerabilities:

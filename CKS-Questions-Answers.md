@@ -256,9 +256,8 @@ bom document query /opt/course/04/sbom.spdx 'name:libcrypto3' --fields 'name,ver
 
 **Key Trivy SBOM Commands:**
 ```bash
-# Generate SBOM in different formats
-trivy image --format spdx-json --output <path> <image>   # SPDX-JSON
-trivy image --format cyclonedx --output <path> <image>   # CycloneDX
+# Generate SBOM in SPDX formats
+trivy image --format spdx-json --output <path> <image>   # SPDX-JSON (recommended)
 trivy image --format spdx --output <path> <image>        # SPDX tag-value
 
 # Scan existing SBOM for vulnerabilities
