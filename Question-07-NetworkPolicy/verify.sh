@@ -158,12 +158,12 @@ echo "Checking output files..."
 
 # Verify deny-all-ingress.yaml
 if [ -f "/opt/course/07/deny-all-ingress.yaml" ]; then
-    # Check if it's valid YAML
+    # Check if it's valid YAML by applying dry-run
     if kubectl apply --dry-run=client -f /opt/course/07/deny-all-ingress.yaml &>/dev/null; then
-        # Check if it has the correct content
-        FILE_KIND=$(grep -i "^kind:" /opt/course/07/deny-all-ingress.yaml | awk '{print $2}')
-        FILE_NAME=$(grep -A 2 "^metadata:" /opt/course/07/deny-all-ingress.yaml | grep "name:" | awk '{print $2}')
-        FILE_NS=$(grep -A 2 "^metadata:" /opt/course/07/deny-all-ingress.yaml | grep "namespace:" | awk '{print $2}')
+        # Parse YAML using kubectl to get actual values
+        FILE_KIND=$(kubectl apply --dry-run=client -f /opt/course/07/deny-all-ingress.yaml -o jsonpath='{.kind}' 2>/dev/null)
+        FILE_NAME=$(kubectl apply --dry-run=client -f /opt/course/07/deny-all-ingress.yaml -o jsonpath='{.metadata.name}' 2>/dev/null)
+        FILE_NS=$(kubectl apply --dry-run=client -f /opt/course/07/deny-all-ingress.yaml -o jsonpath='{.metadata.namespace}' 2>/dev/null)
 
         if [ "$FILE_KIND" == "NetworkPolicy" ] && [ "$FILE_NAME" == "deny-all-ingress" ] && [ "$FILE_NS" == "prod" ]; then
             echo -e "${GREEN}✓ deny-all-ingress.yaml is valid and correct${NC}"
@@ -182,12 +182,12 @@ fi
 
 # Verify allow-from-prod.yaml
 if [ -f "/opt/course/07/allow-from-prod.yaml" ]; then
-    # Check if it's valid YAML
+    # Check if it's valid YAML by applying dry-run
     if kubectl apply --dry-run=client -f /opt/course/07/allow-from-prod.yaml &>/dev/null; then
-        # Check if it has the correct content
-        FILE_KIND=$(grep -i "^kind:" /opt/course/07/allow-from-prod.yaml | awk '{print $2}')
-        FILE_NAME=$(grep -A 2 "^metadata:" /opt/course/07/allow-from-prod.yaml | grep "name:" | awk '{print $2}')
-        FILE_NS=$(grep -A 2 "^metadata:" /opt/course/07/allow-from-prod.yaml | grep "namespace:" | awk '{print $2}')
+        # Parse YAML using kubectl to get actual values
+        FILE_KIND=$(kubectl apply --dry-run=client -f /opt/course/07/allow-from-prod.yaml -o jsonpath='{.kind}' 2>/dev/null)
+        FILE_NAME=$(kubectl apply --dry-run=client -f /opt/course/07/allow-from-prod.yaml -o jsonpath='{.metadata.name}' 2>/dev/null)
+        FILE_NS=$(kubectl apply --dry-run=client -f /opt/course/07/allow-from-prod.yaml -o jsonpath='{.metadata.namespace}' 2>/dev/null)
 
         if [ "$FILE_KIND" == "NetworkPolicy" ] && [ "$FILE_NAME" == "allow-from-prod" ] && [ "$FILE_NS" == "data" ]; then
             echo -e "${GREEN}✓ allow-from-prod.yaml is valid and correct${NC}"
