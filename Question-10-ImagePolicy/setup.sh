@@ -5,8 +5,25 @@ set -e
 
 echo "Setting up Question 10 - ImagePolicyWebhook..."
 
+# Clean up any previous attempts
+rm -rf /opt/course/10
+rm -rf /etc/kubernetes/epconfig
+
+# Restore original kube-apiserver if backup exists
+if [ -f "/etc/kubernetes/manifests/kube-apiserver.yaml.q10.bak" ]; then
+    echo "Restoring original kube-apiserver configuration..."
+    cp /etc/kubernetes/manifests/kube-apiserver.yaml.q10.bak /etc/kubernetes/manifests/kube-apiserver.yaml
+    sleep 30
+fi
+
 # Create output directory
 mkdir -p /opt/course/10
+
+# Create the epconfig directory structure (but leave it empty for the student)
+mkdir -p /etc/kubernetes/epconfig
+
+# Create backup of current kube-apiserver for reset purposes
+cp /etc/kubernetes/manifests/kube-apiserver.yaml /etc/kubernetes/manifests/kube-apiserver.yaml.q10.bak
 
 echo ""
 echo "✓ Environment ready!"
