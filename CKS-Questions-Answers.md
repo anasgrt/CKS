@@ -536,6 +536,7 @@ POLICY
 #     readOnly: true
 #   - mountPath: /var/log/kubernetes/audit
 #     name: audit-log
+#     # readOnly: false (or omit - API server must WRITE audit logs)
 #
 # volumes:
 #   - hostPath:
@@ -547,6 +548,36 @@ POLICY
 #       type: DirectoryOrCreate
 #     name: audit-log
 ```
+
+**⚠️ CRITICAL: Common Mistakes to Avoid**
+
+❌ **WRONG - Mounting individual files:**
+```yaml
+volumeM ounts:
+  - mountPath: /etc/kubernetes/audit/policy.yaml  # ❌ File, not directory!
+    name: audit-policy
+  - mountPath: /var/log/kubernetes/audit/audit.log  # ❌ File, not directory!
+    name: audit-log
+    readOnly: true  # ❌ API server can't write!
+```
+
+✅ **CORRECT - Mount directories:**
+```yaml
+volumeMounts:
+  - mountPath: /etc/kubernetes/audit  # ✅ Directory
+    name: audit-policy
+    readOnly: true  # ✅ Policy is read-only
+  - mountPath: /var/log/kubernetes/audit  # ✅ Directory
+    name: audit-log
+    # readOnly: false or omit - API server writes logs here
+```
+
+**Key Points:**
+- Always mount **directories**, never individual files for auditing
+- Audit policy directory must be `readOnly: true`
+- Audit log directory must be writable (omit readOnly or set to false)
+- Error "is a directory" = you tried to mount a file path
+- API server will fail to start if audit log path is not writable
 
 ---
 
