@@ -43,34 +43,19 @@ metadata:
 spec:
   securityContext:
     runAsNonRoot: true
-    runAsUser: 101
+    runAsUser: 1000
     seccompProfile:
       type: RuntimeDefault
   containers:
-  - name: nginx
-    image: docker.io/nginxinc/nginx-unprivileged:1.25-alpine
-    ports:
-    - containerPort: 8080
+  - name: app
+    image: busybox:1.36
+    command: ["sleep", "3600"]
     securityContext:
       allowPrivilegeEscalation: false
       capabilities:
         drop:
         - ALL
       readOnlyRootFilesystem: true
-    volumeMounts:
-    - name: tmp
-      mountPath: /tmp
-    - name: cache
-      mountPath: /var/cache/nginx
-    - name: run
-      mountPath: /var/run
-  volumes:
-  - name: tmp
-    emptyDir: {}
-  - name: cache
-    emptyDir: {}
-  - name: run
-    emptyDir: {}
 EOF
 
 # Create non-compliant pod 1 (hostNetwork - violates restricted)
