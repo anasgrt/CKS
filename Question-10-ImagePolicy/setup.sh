@@ -22,8 +22,12 @@ mkdir -p /opt/course/10
 # Create the epconfig directory structure (but leave it empty for the student)
 mkdir -p /etc/kubernetes/epconfig
 
-# Create backup of current kube-apiserver for reset purposes
-cp /etc/kubernetes/manifests/kube-apiserver.yaml /etc/kubernetes/manifests/kube-apiserver.yaml.q10.bak
+# Create backup of current kube-apiserver for reset purposes (only if doesn't exist)
+# This ensures we preserve the original clean state
+if [ ! -f "/etc/kubernetes/manifests/kube-apiserver.yaml.q10.bak" ]; then
+    cp /etc/kubernetes/manifests/kube-apiserver.yaml /etc/kubernetes/manifests/kube-apiserver.yaml.q10.bak
+    echo "Created clean backup of kube-apiserver manifest"
+fi
 
 echo ""
 echo "✓ Environment ready!"
